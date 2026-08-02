@@ -1,6 +1,8 @@
 # GBabelDocUI
 
-基于官方 [pdf2zh-next](https://github.com/PDFMathTranslate-next/PDFMathTranslate-next) 的多用户 Web UI 适配层。本仓库地址为 [eaiu/GBabelDocUI](https://github.com/eaiu/GBabelDocUI)。
+基于官方 [pdf2zh-next](https://github.com/PDFMathTranslate-next/PDFMathTranslate-next) 的多用户 Web UI 适配层。
+
+本项目是基于 [eaiu/GBabelDocUI](https://github.com/eaiu/GBabelDocUI) 修改而来。**原作者**：eaiu。
 
 当前仓库已经**不再内置本地 `pdf2zh_next` fork**，运行时直接依赖官方包：
 
