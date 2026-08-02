@@ -1,0 +1,30 @@
+FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim
+
+WORKDIR /app
+
+
+EXPOSE 7860
+
+ENV PYTHONUNBUFFERED=1
+
+# # Download all required fonts
+# ADD "https://github.com/satbyy/go-noto-universal/releases/download/v7.0/GoNotoKurrent-Regular.ttf" /app/
+# ADD "https://github.com/timelic/source-han-serif/releases/download/main/SourceHanSerifCN-Regular.ttf" /app/
+# ADD "https://github.com/timelic/source-han-serif/releases/download/main/SourceHanSerifTW-Regular.ttf" /app/
+# ADD "https://github.com/timelic/source-han-serif/releases/download/main/SourceHanSerifJP-Regular.ttf" /app/
+# ADD "https://github.com/timelic/source-han-serif/releases/download/main/SourceHanSerifKR-Regular.ttf" /app/
+
+RUN apt-get update && \
+     apt-get install --no-install-recommends -y libgl1 libglib2.0-0 libxext6 libsm6 libxrender1 build-essential && \
+     rm -rf /var/lib/apt/lists/*
+
+COPY pyproject.toml uv.lock ./
+RUN uv export --frozen --no-dev --no-emit-project --format requirements.txt --output-file /tmp/requirements.txt && \
+    uv pip install --system --no-cache -r /tmp/requirements.txt
+
+COPY . .
+
+RUN uv pip install --system --no-cache --no-deps . && \
+    babeldoc --version && babeldoc --warmup && \
+    pdf2zh --version
+CMD ["gbabeldocui"]

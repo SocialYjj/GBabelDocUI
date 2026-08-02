@@ -1,0 +1,24 @@
+# GBabelDocUI 来源与修改说明
+
+GBabelDocUI 是一个基于 AGPL-3.0 软件的衍生项目，面向公开部署时的多用户 PDF 翻译 Web UI 场景。
+
+## 来源
+
+- 上游 PDF 翻译项目：[PDFMathTranslate-next](https://github.com/PDFMathTranslate-next/PDFMathTranslate-next)。
+- 多用户 Web UI 早期实现来源于 `GBabelDocUI` 代码库：[eaiu/GBabelDocUI](https://github.com/eaiu/GBabelDocUI)。本工作区中的 `yuan/` 目录只是开发阶段的本地来源对照目录，不属于本仓库发布内容。
+- PDF 翻译运行时通过 PyPI 包 [`pdf2zh-next`](https://pypi.org/project/pdf2zh-next/) 调用，其核心引擎为 [`BabelDOC`](https://github.com/funstory-ai/BabelDOC)。两者均按各自发布包和许可证提供。
+
+## 本仓库的修改范围
+
+当前仓库将运行时适配为直接依赖锁定版本的官方 `pdf2zh-next==2.8.2` 和 `BabelDOC==0.5.24`，并维护以下本地功能：
+
+- 用户注册、密码哈希、JWT 会话和用户隔离；
+- 用户配置、翻译历史、上传文件和翻译结果的持久化；
+- 多用户 Web UI 与 FastAPI 接口；
+- 上传文件边界校验、跨域来源配置、日志中的敏感配置保护和 Docker 构建可复现性。
+
+原有源文件中的版权声明和 AGPL-3.0 许可证文本应与本文件一并保留。除本文件明确说明的内容外，本文件不改变任何第三方依赖的版权或许可证。
+
+## 本地数据边界
+
+`data/` 包含用户数据库、上传 PDF、翻译结果、用户配置和可能的 API 密钥，只用于本地或 VPS 的运行时验证，已由 Git 和 Docker 忽略规则排除。公开发布前不得使用 `git add -f data` 或其他方式强制纳入这些数据。
