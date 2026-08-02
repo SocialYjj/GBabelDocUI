@@ -82,7 +82,7 @@ services:
 
 ### 使用 GitHub Container Registry 镜像
 
-`.github/workflows/docker-publish.yml` 会在 `v*` 标签推送或手动运行时构建并发布镜像；Pull Request 只构建和扫描，不发布。发布后可直接使用：
+`.github/workflows/docker-publish.yml` 会在 `main` 分支推送、`v*` 标签推送或手动运行时构建并发布镜像；Pull Request 只构建和扫描，不发布。发布后可直接使用：
 
 ```bash
 docker pull ghcr.io/socialyjj/gbabeldocui:latest
@@ -94,7 +94,7 @@ docker run -d \
   ghcr.io/socialyjj/gbabeldocui:latest
 ```
 
-工作流还会为版本标签生成版本号和提交短 SHA 标签。首次发布后，如果 GHCR 包不是公开的，需要在 GitHub 的 Package settings 中将其设置为 Public，VPS 才能免认证拉取；`data/` 仍只通过本地持久化卷挂载，不会进入镜像。
+工作流会为发布构建生成 `latest` 和提交短 SHA 标签；版本标签还会生成对应的版本号标签。首次发布后，如果 GHCR 包不是公开的，需要在 GitHub 的 Package settings 中将其设置为 Public，VPS 才能免认证拉取；`data/` 仍只通过本地持久化卷挂载，不会进入镜像。
 
 ## 数据目录结构
 
