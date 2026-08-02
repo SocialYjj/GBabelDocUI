@@ -66,19 +66,13 @@ export GBABELDOCUI_MAX_UPLOAD_BYTES=52428800
 
 ## Docker 部署
 
-```yaml
-version: '3.8'
+仓库根目录的 [`docker-compose.yml`](docker-compose.yml) 使用标准 Compose 配置，不需要额外创建外部 Docker 网络。执行以下命令即可构建并启动：
 
-services:
-  gbabeldocui:
-    build: .
-    container_name: gbabeldocui
-    ports:
-      - "7860:7860"
-    restart: unless-stopped
-    volumes:
-      - ./data:/app/data
+```bash
+docker compose up -d --build
 ```
+
+默认访问地址为 `http://127.0.0.1:7860`。如需修改宿主机端口，可在启动前设置 `GBABELDOCUI_PORT`。
 
 ### 使用 GitHub Container Registry 镜像
 

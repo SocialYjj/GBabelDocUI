@@ -1,0 +1,18 @@
+services:
+  gbabeldocui:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: gbabeldocui:latest
+    restart: unless-stopped
+    ports:
+      - "${GBABELDOCUI_PORT:-7860}:7860"
+    environment:
+      PORT: "7860"
+      GBABELDOCUI_DATA_DIR: /app/data
+    volumes:
+      - ./data:/app/data
+      - babeldoc-cache:/root/.cache/babeldoc
+
+volumes:
+  babeldoc-cache:
