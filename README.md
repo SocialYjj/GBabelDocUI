@@ -41,7 +41,7 @@
 ## 本地启动
 
 ```bash
-git clone https://github.com/eaiu/GBabelDocUI.git
+git clone https://github.com/SocialYjj/GBabelDocUI.git
 cd GBabelDocUI
 uv venv .venv
 source .venv/bin/activate
@@ -85,13 +85,13 @@ services:
 `.github/workflows/docker-publish.yml` 会在 `v*` 标签推送或手动运行时构建并发布镜像；Pull Request 只构建和扫描，不发布。发布后可直接使用：
 
 ```bash
-docker pull ghcr.io/eaiu/gbabeldocui:latest
+docker pull ghcr.io/socialyjj/gbabeldocui:latest
 docker run -d \
   --name gbabeldocui \
   --restart unless-stopped \
   -p 7860:7860 \
   -v "$(pwd)/data:/app/data" \
-  ghcr.io/eaiu/gbabeldocui:latest
+  ghcr.io/socialyjj/gbabeldocui:latest
 ```
 
 工作流还会为版本标签生成版本号和提交短 SHA 标签。首次发布后，如果 GHCR 包不是公开的，需要在 GitHub 的 Package settings 中将其设置为 Public，VPS 才能免认证拉取；`data/` 仍只通过本地持久化卷挂载，不会进入镜像。
