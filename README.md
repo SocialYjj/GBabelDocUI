@@ -68,9 +68,9 @@ export GBABELDOCUI_MAX_UPLOAD_BYTES=52428800
 version: '3.8'
 
 services:
-  pdfmathtranslate:
+  gbabeldocui:
     build: .
-    container_name: pdfmathtranslate
+    container_name: gbabeldocui
     ports:
       - "7860:7860"
     restart: unless-stopped

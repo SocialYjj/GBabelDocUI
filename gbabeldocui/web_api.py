@@ -13,6 +13,8 @@ import json
 import logging
 import os
 import uuid
+from contextlib import asynccontextmanager
+from datetime import UTC
 from datetime import datetime
 from pathlib import Path
 
@@ -30,6 +32,7 @@ from pdf2zh_next import __version__
 from pdf2zh_next.config.model import SettingsModel
 from pdf2zh_next.high_level import do_translate_async_stream
 from pydantic import BaseModel
+from pydantic import StrictBool
 from starlette.background import BackgroundTask
 
 from gbabeldocui.auth import AuthenticationError
@@ -39,6 +42,11 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_MAX_UPLOAD_BYTES = 50 * 1024 * 1024
 UPLOAD_CHUNK_BYTES = 1024 * 1024
+
+
+def _utc_now() -> datetime:
+    """Return a naive UTC timestamp for the existing JSON format."""
+    return datetime.now(UTC).replace(tzinfo=None)
 
 try:
     MAX_UPLOAD_BYTES = int(
@@ -50,8 +58,22 @@ except ValueError as exc:
 if MAX_UPLOAD_BYTES <= 0:
     raise RuntimeError("GBABELDOCUI_MAX_UPLOAD_BYTES must be greater than zero")
 
+@asynccontextmanager
+async def application_lifespan(_app: FastAPI):
+    """Initialize and release application-level resources."""
+    logger.info("PDFMathTranslate Web API starting...")
+    user_manager.cleanup_expired_sessions()
+    logger.info("Web API ready")
+    yield
+    logger.info("PDFMathTranslate Web API shutting down...")
+
+
 # Initialize FastAPI app
-app = FastAPI(title="PDFMathTranslate API", version="2.0.0")
+app = FastAPI(
+    title="PDFMathTranslate API",
+    version="2.0.0",
+    lifespan=application_lifespan,
+)
 
 # Add CORS middleware only when a separate trusted frontend is configured.
 allowed_origins = tuple(
@@ -96,6 +118,10 @@ class ChangePasswordRequest(BaseModel):
     new_password: str
 
 
+class RegistrationToggleRequest(BaseModel):
+    enabled: StrictBool
+
+
 class TranslationSettings(BaseModel):
     service: str
     lang_from: str = "English"
@@ -115,6 +141,17 @@ def _normalize_uploaded_filename(filename: str | None) -> str:
     if not safe_filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only PDF files are allowed")
     return safe_filename
+
+
+def _extract_bearer_token(authorization: str | None) -> str:
+    """Extract a non-empty bearer token from an Authorization header."""
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    scheme, separator, token = authorization.partition(" ")
+    if scheme.lower() != "bearer" or not separator or not token.strip():
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    return token.strip()
 
 
 async def _save_uploaded_file(file: UploadFile, file_path: Path) -> int:
@@ -141,10 +178,7 @@ async def _save_uploaded_file(file: UploadFile, file_path: Path) -> int:
 # Dependency to get current user from token
 async def get_current_user(authorization: str | None = Header(None)) -> dict:
     """Validate authentication token and return current user"""
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    
-    token = authorization.replace("Bearer ", "")
+    token = _extract_bearer_token(authorization)
     user_data = user_manager.validate_token(token)
     
     if not user_data:
@@ -414,9 +448,12 @@ async def login(request: LoginRequest):
 
 
 @app.post("/api/auth/logout")
-async def logout(_current_user: dict = Depends(get_current_user), authorization: str = Header(None)):
+async def logout(
+    _current_user: dict = Depends(get_current_user),
+    authorization: str | None = Header(None),
+):
     """Logout current user"""
-    token = authorization.replace("Bearer ", "")
+    token = _extract_bearer_token(authorization)
     user_manager.logout(token)
     
     return {"success": True, "message": "Logged out successfully"}
@@ -460,10 +497,13 @@ async def get_registration_status():
 
 
 @app.post("/api/auth/registration-toggle")
-async def toggle_registration(request: dict, admin_user: dict = Depends(get_admin_user)):
+async def toggle_registration(
+    request: RegistrationToggleRequest,
+    admin_user: dict = Depends(get_admin_user),
+):
     """Enable or disable user registration (admin only)"""
     try:
-        enabled = request.get('enabled', False)
+        enabled = request.enabled
         user_manager.set_registration_enabled(enabled, admin_user['username'])
         return {"success": True, "enabled": enabled, "message": f"Registration {'enabled' if enabled else 'disabled'}"}
     except AuthenticationError as e:
@@ -506,7 +546,7 @@ async def get_settings(current_user: dict = Depends(get_current_user)):
     settings_file = user_dir / "settings.json"
     
     if settings_file.exists():
-        settings = json.loads(settings_file.read_text())
+        settings = json.loads(settings_file.read_text(encoding="utf-8"))
     else:
         settings = {}
     
@@ -520,7 +560,7 @@ async def update_settings(settings: dict, current_user: dict = Depends(get_curre
     user_dir.mkdir(parents=True, exist_ok=True)
     settings_file = user_dir / "settings.json"
     
-    settings_file.write_text(json.dumps(settings, indent=2))
+    settings_file.write_text(json.dumps(settings, indent=2), encoding="utf-8")
     
     return {"success": True, "message": "Settings updated successfully"}
 
@@ -545,7 +585,7 @@ async def reset_settings(current_user: dict = Depends(get_current_user)):
     user_dir = user_manager.get_user_dir(current_user['username'])
     settings_file = user_dir / "settings.json"
     
-    settings_file.write_text("{}")
+    settings_file.write_text("{}", encoding="utf-8")
     
     return {"success": True, "message": "Settings reset to default"}
 
@@ -558,14 +598,14 @@ async def export_settings(current_user: dict = Depends(get_current_user)):
     
     # Load current settings
     if settings_file.exists():
-        settings = json.loads(settings_file.read_text())
+        settings = json.loads(settings_file.read_text(encoding="utf-8"))
     else:
         settings = {}
     
     # Create export data with metadata
     export_data = {
         "version": "1.0",
-        "exported_at": datetime.utcnow().isoformat(),
+        "exported_at": _utc_now().isoformat(),
         "exported_by": current_user['username'],
         "settings": settings
     }
@@ -577,7 +617,7 @@ async def export_settings(current_user: dict = Depends(get_current_user)):
         temp_path = f.name
     
     # Generate filename with timestamp
-    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    timestamp = _utc_now().strftime("%Y%m%d_%H%M%S")
     filename = f"translation_config_{timestamp}.json"
     
     return FileResponse(
@@ -600,7 +640,7 @@ async def import_settings(
     
     try:
         # Read and parse JSON
-        content = await file.read()
+        content = await file.read(MAX_UPLOAD_BYTES + 1)
         if len(content) > MAX_UPLOAD_BYTES:
             raise HTTPException(
                 status_code=413,
@@ -629,7 +669,10 @@ async def import_settings(
         settings_file = user_dir / "settings.json"
         
         # Write settings
-        settings_file.write_text(json.dumps(imported_settings, indent=2, ensure_ascii=False))
+        settings_file.write_text(
+            json.dumps(imported_settings, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
         
         # Count imported settings
         setting_count = len(imported_settings)
@@ -728,7 +771,7 @@ async def start_translation(
         "message": "Translation queued",
         "username": current_user['username'],
         "file_id": file_id,
-        "created_at": datetime.utcnow().isoformat()
+        "created_at": _utc_now().isoformat()
     }
     
     # Start translation in background
@@ -755,7 +798,11 @@ async def run_translation(task_id: str, file_path: Path, output_dir: Path, trans
         # Load user settings
         user_dir = user_manager.get_user_dir(username)
         settings_file = user_dir / "settings.json"
-        user_settings = json.loads(settings_file.read_text()) if settings_file.exists() else {}
+        user_settings = (
+            json.loads(settings_file.read_text(encoding="utf-8"))
+            if settings_file.exists()
+            else {}
+        )
         
         # Get pages from translation_settings if provided
         pages = translation_settings.get('pages') if translation_settings else None
@@ -836,19 +883,23 @@ async def run_translation(task_id: str, file_path: Path, output_dir: Path, trans
         
         # Update user history
         history_file = user_dir / "history.json"
-        history = json.loads(history_file.read_text()) if history_file.exists() else []
+        history = (
+            json.loads(history_file.read_text(encoding="utf-8"))
+            if history_file.exists()
+            else []
+        )
         history.append({
             "task_id": task_id,
             "file_id": active_tasks[task_id].get("file_id"),
             "filename": file_path.name,
             "original_filename": original_filename,
             "created_at": active_tasks[task_id]["created_at"],
-            "completed_at": datetime.utcnow().isoformat(),
+            "completed_at": _utc_now().isoformat(),
             "status": "completed",
             "mono_path": str(mono_path) if mono_path else None,
             "dual_path": str(dual_path) if dual_path else None
         })
-        history_file.write_text(json.dumps(history, indent=2))
+        history_file.write_text(json.dumps(history, indent=2), encoding="utf-8")
         
         logger.info(f"Translation task {task_id} completed successfully")
         
@@ -861,16 +912,20 @@ async def run_translation(task_id: str, file_path: Path, output_dir: Path, trans
         try:
             user_dir = user_manager.get_user_dir(username)
             history_file = user_dir / "history.json"
-            history = json.loads(history_file.read_text()) if history_file.exists() else []
+            history = (
+                json.loads(history_file.read_text(encoding="utf-8"))
+                if history_file.exists()
+                else []
+            )
             history.append({
                 "task_id": task_id,
                 "filename": file_path.name,
                 "created_at": active_tasks[task_id]["created_at"],
-                "completed_at": datetime.utcnow().isoformat(),
+                "completed_at": _utc_now().isoformat(),
                 "status": "failed",
                 "error": str(e)
             })
-            history_file.write_text(json.dumps(history, indent=2))
+            history_file.write_text(json.dumps(history, indent=2), encoding="utf-8")
         except Exception as hist_error:
             logger.error(f"Failed to update history: {hist_error}")
 
@@ -897,7 +952,7 @@ async def get_translation_history(current_user: dict = Depends(get_current_user)
     history_file = user_dir / "history.json"
     
     if history_file.exists():
-        history = json.loads(history_file.read_text())
+        history = json.loads(history_file.read_text(encoding="utf-8"))
     else:
         history = []
     
@@ -915,7 +970,7 @@ async def delete_history_item(task_id: str, current_user: dict = Depends(get_cur
     if not history_file.exists():
         raise HTTPException(status_code=404, detail="History not found")
     
-    history = json.loads(history_file.read_text())
+    history = json.loads(history_file.read_text(encoding="utf-8"))
     
     # Find the history item
     item_to_delete = None
@@ -944,7 +999,7 @@ async def delete_history_item(task_id: str, current_user: dict = Depends(get_cur
     
     # Remove from history
     history = [item for item in history if item.get('task_id') != task_id]
-    history_file.write_text(json.dumps(history, indent=2))
+    history_file.write_text(json.dumps(history, indent=2), encoding="utf-8")
     
     # Remove from active_tasks if exists
     if task_id in active_tasks:
@@ -1020,22 +1075,6 @@ if static_dir.exists():
     
     # Serve root HTML files
     app.mount("/", StaticFiles(directory=str(static_dir), html=True), name="root")
-
-
-# Startup event
-@app.on_event("startup")
-async def startup_event():
-    """Initialize on startup"""
-    logger.info("PDFMathTranslate Web API starting...")
-    user_manager.cleanup_expired_sessions()
-    logger.info("Web API ready")
-
-
-# Shutdown event
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Cleanup on shutdown"""
-    logger.info("PDFMathTranslate Web API shutting down...")
 
 
 if __name__ == "__main__":

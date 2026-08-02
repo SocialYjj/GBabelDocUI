@@ -12,6 +12,7 @@ import os
 import re
 import secrets
 import sqlite3
+from datetime import UTC
 from datetime import datetime
 from datetime import timedelta
 from pathlib import Path
@@ -27,6 +28,11 @@ DB_PATH = DATA_DIR / "users.db"
 USERNAME_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{2,63}$")
 
 
+def _utc_now() -> datetime:
+    """Return a naive UTC timestamp for the existing database format."""
+    return datetime.now(UTC).replace(tzinfo=None)
+
+
 class AuthenticationError(Exception):
     """Raised when authentication fails"""
     pass
@@ -36,14 +42,21 @@ class UserManager:
     """Manages user authentication and database operations"""
     
     def __init__(self, db_path: Path = DB_PATH):
-        self.db_path = db_path
+        self.db_path = Path(db_path)
+        self.data_dir = self.db_path.parent
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._init_database()
         self._load_or_create_secret()
+
+    def _connect(self) -> sqlite3.Connection:
+        """Open a database connection with the required integrity settings."""
+        connection = sqlite3.connect(self.db_path, timeout=30)
+        connection.execute("PRAGMA foreign_keys = ON")
+        return connection
     
     def _init_database(self):
         """Initialize the SQLite database with required tables"""
-        conn = sqlite3.connect(self.db_path)
+        conn = self._connect()
         cursor = conn.cursor()
         
         # Users table
@@ -95,23 +108,28 @@ class UserManager:
     def _load_or_create_secret(self):
         """Load existing secret key or create a new one"""
         global SECRET_KEY
-        conn = sqlite3.connect(self.db_path)
+        conn = self._connect()
         cursor = conn.cursor()
-        
-        cursor.execute("SELECT value FROM app_config WHERE key = 'secret_key'")
-        result = cursor.fetchone()
-        
-        if result:
+
+        try:
+            cursor.execute("SELECT value FROM app_config WHERE key = 'secret_key'")
+            result = cursor.fetchone()
+
+            if not result:
+                cursor.execute(
+                    "INSERT OR IGNORE INTO app_config (key, value) VALUES ('secret_key', ?)",
+                    (secrets.token_urlsafe(32),),
+                )
+                result = cursor.execute(
+                    "SELECT value FROM app_config WHERE key = 'secret_key'"
+                ).fetchone()
+                if not result:
+                    raise RuntimeError("Failed to initialize the application secret")
+                conn.commit()
+
             SECRET_KEY = result[0]
-        else:
-            SECRET_KEY = secrets.token_urlsafe(32)
-            cursor.execute(
-                "INSERT INTO app_config (key, value) VALUES ('secret_key', ?)",
-                (SECRET_KEY,)
-            )
-            conn.commit()
-        
-        conn.close()
+        finally:
+            conn.close()
     
     def _hash_password(self, password: str) -> str:
         """Hash a password using bcrypt"""
@@ -123,7 +141,7 @@ class UserManager:
     
     def has_users(self) -> bool:
         """Check if any users exist in the database"""
-        conn = sqlite3.connect(self.db_path)
+        conn = self._connect()
         cursor = conn.cursor()
         cursor.execute("SELECT COUNT(*) FROM users")
         count = cursor.fetchone()[0]
@@ -154,12 +172,12 @@ class UserManager:
         if not password or len(password) < 6:
             raise ValueError("Password must be at least 6 characters long")
         
-        conn = sqlite3.connect(self.db_path)
+        conn = self._connect()
         cursor = conn.cursor()
         
         try:
             password_hash = self._hash_password(password)
-            created_at = datetime.utcnow().isoformat()
+            created_at = _utc_now().isoformat()
             
             cursor.execute(
                 "INSERT INTO users (username, password_hash, is_admin, created_at) VALUES (?, ?, ?, ?)",
@@ -176,12 +194,12 @@ class UserManager:
             # Create default settings file
             settings_file = user_dir / "settings.json"
             if not settings_file.exists():
-                settings_file.write_text("{}")
+                settings_file.write_text("{}", encoding="utf-8")
             
             # Create history file
             history_file = user_dir / "history.json"
             if not history_file.exists():
-                history_file.write_text("[]")
+                history_file.write_text("[]", encoding="utf-8")
             
             return True
             
@@ -201,7 +219,7 @@ class UserManager:
         Returns:
             Session token if authentication successful, None otherwise
         """
-        conn = sqlite3.connect(self.db_path)
+        conn = self._connect()
         cursor = conn.cursor()
         
         cursor.execute(
@@ -223,11 +241,11 @@ class UserManager:
         # Update last login
         cursor.execute(
             "UPDATE users SET last_login = ? WHERE username = ?",
-            (datetime.utcnow().isoformat(), username)
+            (_utc_now().isoformat(), username)
         )
         
         # Create session token
-        expires_at = datetime.utcnow() + timedelta(hours=TOKEN_EXPIRY_HOURS)
+        expires_at = _utc_now() + timedelta(hours=TOKEN_EXPIRY_HOURS)
         token_data = {
             'username': username,
             'is_admin': bool(is_admin),
@@ -239,7 +257,7 @@ class UserManager:
         # Store session in database
         cursor.execute(
             "INSERT INTO sessions (session_token, username, created_at, expires_at) VALUES (?, ?, ?, ?)",
-            (session_token, username, datetime.utcnow().isoformat(), expires_at.isoformat())
+            (session_token, username, _utc_now().isoformat(), expires_at.isoformat())
         )
         
         conn.commit()
@@ -259,15 +277,20 @@ class UserManager:
         """
         try:
             # Decode JWT token
-            payload = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
+            jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
             
             # Check if session exists in database
-            conn = sqlite3.connect(self.db_path)
+            conn = self._connect()
             cursor = conn.cursor()
             
             cursor.execute(
-                "SELECT username, expires_at FROM sessions WHERE session_token = ?",
-                (token,)
+                """
+                SELECT sessions.username, sessions.expires_at, users.is_admin
+                FROM sessions
+                INNER JOIN users ON users.username = sessions.username
+                WHERE sessions.session_token = ?
+                """,
+                (token,),
             )
             result = cursor.fetchone()
             conn.close()
@@ -275,16 +298,16 @@ class UserManager:
             if not result:
                 return None
             
-            username, expires_at = result
+            username, expires_at, is_admin = result
             
             # Check if session has expired
-            if datetime.fromisoformat(expires_at) < datetime.utcnow():
+            if datetime.fromisoformat(expires_at) < _utc_now():
                 self.logout(token)
                 return None
             
             return {
                 'username': username,
-                'is_admin': payload.get('is_admin', False)
+                'is_admin': bool(is_admin),
             }
             
         except jwt.ExpiredSignatureError:
@@ -302,7 +325,7 @@ class UserManager:
         Returns:
             True if logout successful
         """
-        conn = sqlite3.connect(self.db_path)
+        conn = self._connect()
         cursor = conn.cursor()
         
         cursor.execute("DELETE FROM sessions WHERE session_token = ?", (token,))
@@ -326,7 +349,7 @@ class UserManager:
             AuthenticationError: If admin_username is not an admin
             ValueError: If trying to delete the last admin
         """
-        conn = sqlite3.connect(self.db_path)
+        conn = self._connect()
         cursor = conn.cursor()
         
         # Check if requester is admin
@@ -377,7 +400,7 @@ class UserManager:
         Raises:
             AuthenticationError: If admin_username is not an admin
         """
-        conn = sqlite3.connect(self.db_path)
+        conn = self._connect()
         cursor = conn.cursor()
         
         # Check if requester is admin
@@ -421,7 +444,7 @@ class UserManager:
         if not new_password or len(new_password) < 6:
             raise ValueError("New password must be at least 6 characters long")
         
-        conn = sqlite3.connect(self.db_path)
+        conn = self._connect()
         cursor = conn.cursor()
         
         cursor.execute("SELECT password_hash FROM users WHERE username = ?", (username,))
@@ -451,7 +474,7 @@ class UserManager:
     
     def get_user_dir(self, username: str) -> Path:
         """Get the data directory for a specific user"""
-        return DATA_DIR / "users" / username
+        return self.data_dir / "users" / username
     
     def get_registration_enabled(self) -> bool:
         """
@@ -460,7 +483,7 @@ class UserManager:
         Returns:
             True if registration is enabled, False otherwise (default: False)
         """
-        conn = sqlite3.connect(self.db_path)
+        conn = self._connect()
         cursor = conn.cursor()
         
         cursor.execute("SELECT value FROM app_config WHERE key = 'allow_registration'")
@@ -485,7 +508,7 @@ class UserManager:
         Raises:
             AuthenticationError: If admin_username is not an admin
         """
-        conn = sqlite3.connect(self.db_path)
+        conn = self._connect()
         cursor = conn.cursor()
         
         # Check if requester is admin
@@ -508,12 +531,12 @@ class UserManager:
     
     def cleanup_expired_sessions(self):
         """Remove expired sessions from the database"""
-        conn = sqlite3.connect(self.db_path)
+        conn = self._connect()
         cursor = conn.cursor()
         
         cursor.execute(
             "DELETE FROM sessions WHERE expires_at < ?",
-            (datetime.utcnow().isoformat(),)
+            (_utc_now().isoformat(),)
         )
         
         conn.commit()

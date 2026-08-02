@@ -192,6 +192,34 @@ def test_upload_size_limit_removes_partial_file(tmp_path, monkeypatch):
     assert list(upload_dir.iterdir()) == []
 
 
+def test_registration_toggle_requires_boolean_and_bearer_is_case_insensitive(
+    tmp_path, monkeypatch
+):
+    web_api_module = load_web_api_module(tmp_path, monkeypatch)
+    client = TestClient(web_api_module.app)
+    headers = setup_admin_headers(client)
+
+    invalid_response = client.post(
+        "/api/auth/registration-toggle",
+        json={"enabled": "false"},
+        headers=headers,
+    )
+    assert invalid_response.status_code == 422
+
+    enabled_response = client.post(
+        "/api/auth/registration-toggle",
+        json={"enabled": True},
+        headers=headers,
+    )
+    assert enabled_response.status_code == 200
+
+    lowercase_scheme_response = client.get(
+        "/api/settings",
+        headers={"Authorization": headers["Authorization"].replace("Bearer", "bearer")},
+    )
+    assert lowercase_scheme_response.status_code == 200
+
+
 def test_username_cannot_escape_data_directory(tmp_path, monkeypatch):
     web_api_module = load_web_api_module(tmp_path, monkeypatch)
     client = TestClient(web_api_module.app)
