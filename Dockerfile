@@ -18,6 +18,7 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
 # ADD "https://github.com/timelic/source-han-serif/releases/download/main/SourceHanSerifKR-Regular.ttf" /app/
 
 RUN apt-get update && \
+     apt-get upgrade -y && \
      apt-get install --no-install-recommends -y libgl1 libglib2.0-0 libxext6 libsm6 libxrender1 && \
      rm -rf /var/lib/apt/lists/*
 

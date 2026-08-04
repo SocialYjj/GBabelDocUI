@@ -103,8 +103,8 @@ jobs:
         with:
           sarif_file: trivy-results.sarif
 
-      # 官方 pdf2zh-next 仍约束 gradio<5.36，当前上游依赖存在已知扫描告警。
-      # PR、main 推送和正式版本标签都必须通过安全门禁后才允许发布。
+      # 官方 pdf2zh-next 2.9.0 仍声明 gradio<5.36；pyproject.toml 已覆盖该过时约束，
+      # 使用安全修复版本。PR、main 推送和正式版本标签都必须通过安全门禁后才允许发布。
       - name: PR、main 和正式发布安全门禁
         if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
         uses: aquasecurity/trivy-action@v0.36.0
