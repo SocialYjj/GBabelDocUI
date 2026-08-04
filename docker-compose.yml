@@ -6,13 +6,38 @@ services:
     image: gbabeldocui:latest
     restart: unless-stopped
     ports:
-      - "${GBABELDOCUI_PORT:-7860}:7860"
+      - "${GBABELDOCUI_BIND_ADDRESS:-127.0.0.1}:${GBABELDOCUI_PORT:-7860}:7860"
     environment:
       PORT: "7860"
       GBABELDOCUI_DATA_DIR: /app/data
+      GBABELDOCUI_ALLOWED_ORIGINS: "${GBABELDOCUI_ALLOWED_ORIGINS:-}"
+      GBABELDOCUI_MAX_UPLOAD_BYTES: "${GBABELDOCUI_MAX_UPLOAD_BYTES:-52428800}"
+      GBABELDOCUI_MAX_USER_STORAGE_BYTES: "${GBABELDOCUI_MAX_USER_STORAGE_BYTES:-2147483648}"
+      GBABELDOCUI_MAX_ACTIVE_TASKS_PER_USER: "${GBABELDOCUI_MAX_ACTIVE_TASKS_PER_USER:-2}"
+      GBABELDOCUI_MAX_ACTIVE_TASKS_GLOBAL: "${GBABELDOCUI_MAX_ACTIVE_TASKS_GLOBAL:-8}"
+      GBABELDOCUI_TRANSLATION_TIMEOUT_SECONDS: "${GBABELDOCUI_TRANSLATION_TIMEOUT_SECONDS:-7200}"
+      GBABELDOCUI_MAX_USERS: "${GBABELDOCUI_MAX_USERS:-1000}"
+      GBABELDOCUI_AUTH_ATTEMPT_LIMIT: "${GBABELDOCUI_AUTH_ATTEMPT_LIMIT:-5}"
+      GBABELDOCUI_AUTH_ATTEMPT_WINDOW_SECONDS: "${GBABELDOCUI_AUTH_ATTEMPT_WINDOW_SECONDS:-300}"
+      GBABELDOCUI_ORPHAN_UPLOAD_TTL_SECONDS: "${GBABELDOCUI_ORPHAN_UPLOAD_TTL_SECONDS:-604800}"
+      GBABELDOCUI_ALLOW_PRIVATE_ENDPOINTS: "${GBABELDOCUI_ALLOW_PRIVATE_ENDPOINTS:-false}"
+      TZ: "${TZ:-Asia/Shanghai}"
     volumes:
       - ./data:/app/data
       - babeldoc-cache:/root/.cache/babeldoc
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - >-
+          import urllib.request;
+          [urllib.request.urlopen(url, timeout=3) for url in
+          ('http://127.0.0.1:7860/api/auth/status', 'http://127.0.0.1:7860/login.html')]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
 
 volumes:
   babeldoc-cache:

@@ -1,6 +1,7 @@
 [**高級選項**](./introduction.md) > **高級選項** _(current)_
 
----
+> [!NOTE]
+> 本頁僅作為上游 pdf2zh-next 命令列執行環境的參數參考，不是 GBabelDocUI 多使用者 Web UI 的使用說明。請使用 gbabeldocui 啟動 GBabelDocUI，開啟 /login.html，並在設定頁面配置翻譯選項。
 
 <h3 id="目錄">目錄</h3>
 
@@ -17,7 +18,6 @@
 - [#### 驗證與歡迎頁面](#驗證與歡迎頁面)
 - [#### 詞彙表支持](#詞彙表支持)
 
----
 
 #### 命令行參數
 
@@ -98,7 +98,6 @@
 
 [⬆️ 回到頂部](#toc)
 
----
 
 #### 速率限制配置指南
 
@@ -156,7 +155,6 @@ pdf2zh example.pdf --qps 45 --pool-max-worker 45
 
 [⬆️ 回到頂部](#toc)
 
----
 
 #### 部分翻譯
 
@@ -195,7 +193,6 @@ pdf2zh_next example.pdf --pages "1,3,10-20,25-"
 
 [⬆️ 回到頂部](#目錄)
 
----
 
 #### 指定來源與目標語言
 
@@ -207,7 +204,6 @@ pdf2zh_next example.pdf --lang-in en -lang-out ja
 
 [⬆️ 回到頂部](#toc)
 
----
 
 #### 使用例外進行翻譯
 
@@ -225,7 +221,6 @@ pdf2zh_next example.pdf --formular-font-pattern "(CM[^R]|MS.M|XY|MT|BL|RM|EU|LA|
 
 [⬆️ 回到頂部](#toc)
 
----
 
 #### 自訂提示詞
 
@@ -239,7 +234,6 @@ pdf2zh_next example.pdf --custom-system-prompt "/no_think You are a professional
 
 [⬆️ 回到頂部](#toc)
 
----
 
 #### 自定義配置
 
@@ -300,7 +294,6 @@ pdf2zh_next --config-file '/path/config.toml'
 
 [⬆️ 回到頂部](#toc)
 
----
 
 #### 跳過清理
 
@@ -321,7 +314,6 @@ PDF2ZH_SKIP_CLEAN=TRUE pdf2zh_next example.pdf
 > [!TIP]
 > 當啟用 `--enhance-compatibility` 時，跳過清理會自動啟用。
 
----
 
 #### 翻譯快取
 
@@ -333,7 +325,6 @@ pdf2zh_next example.pdf --ignore-cache
 
 [⬆️ 回到頂部](#toc)
 
----
 
 #### 部署為公共服務
 
@@ -362,7 +353,6 @@ disable_config_auto_save = true
 
 [⬆️ 回到頂部](#toc)
 
----
 
 #### 驗證與歡迎頁面
 
@@ -411,7 +401,6 @@ welcome_page = "/path/to/welcome/html/file"
 
 [⬆️ 回到頂部](#toc)
 
----
 
 #### 詞彙表支持
 

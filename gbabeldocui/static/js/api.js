@@ -41,17 +41,16 @@ class APIClient {
     try {
       const response = await fetch(url, config);
 
-      // Handle 401 Unauthorized
-      if (response.status === 401) {
-        this.clearToken();
-        window.location.href = '/login.html';
+      if (this.handleUnauthorized(response)) {
         throw new Error('Unauthorized');
       }
 
-      const data = await response.json();
+      const data = await this.parseResponseBody(response);
 
       if (!response.ok) {
-        throw new Error(data.detail || 'Request failed');
+        const error = new Error(this.responseErrorMessage(data, 'Request failed'));
+        error.status = response.status;
+        throw error;
       }
 
       return data;
@@ -59,6 +58,55 @@ class APIClient {
       console.error('API request failed:', error);
       throw error;
     }
+  }
+
+  handleUnauthorized(response) {
+    if (response.status !== 401) {
+      return false;
+    }
+    this.clearToken();
+    if (!window.location.pathname.endsWith('/login.html')) {
+      window.location.href = '/login.html';
+    }
+    return true;
+  }
+
+  getDownloadFilename(contentDisposition, fallback) {
+    if (!contentDisposition) {
+      return fallback;
+    }
+    const encodedMatch = contentDisposition.match(/filename\*=(?:UTF-8''|utf-8'')([^;]+)/i);
+    if (encodedMatch) {
+      try {
+        return decodeURIComponent(encodedMatch[1].trim().replace(/^"|"$/g, ''));
+      } catch (error) {
+        console.warn('Failed to decode response filename:', error);
+      }
+    }
+    const plainMatch = contentDisposition.match(/filename="?([^";\n]+)"?/i);
+    return plainMatch ? plainMatch[1] : fallback;
+  }
+
+  async parseResponseBody(response) {
+    const contentType = response.headers.get('content-type') || '';
+    if (contentType.includes('application/json')) {
+      try {
+        return await response.json();
+      } catch (error) {
+        return { detail: '服务器返回了无效响应' };
+      }
+    }
+    return { detail: await response.text() };
+  }
+
+  responseErrorMessage(data, fallback) {
+    if (data && typeof data.detail === 'string' && data.detail.trim()) {
+      return data.detail;
+    }
+    if (data && typeof data.message === 'string' && data.message.trim()) {
+      return data.message;
+    }
+    return fallback;
   }
 
   /**
@@ -158,7 +206,7 @@ class APIClient {
    * Delete user (admin only)
    */
   async deleteUser(username) {
-    return this.request(`/api/auth/users/${username}`, {
+    return this.request(`/api/auth/users/${encodeURIComponent(username)}`, {
       method: 'DELETE',
     });
   }
@@ -250,17 +298,16 @@ class APIClient {
       },
     });
 
+    if (this.handleUnauthorized(response)) {
+      throw new Error('Unauthorized');
+    }
     if (!response.ok) {
-      throw new Error('Failed to export settings');
+      const error = await this.parseResponseBody(response);
+      throw new Error(this.responseErrorMessage(error, 'Failed to export settings'));
     }
 
-    // Get filename from Content-Disposition header or use default
     const contentDisposition = response.headers.get('Content-Disposition');
-    let filename = 'translation_config.json';
-    if (contentDisposition) {
-      const match = contentDisposition.match(/filename="?([^"]+)"?/);
-      if (match) filename = match[1];
-    }
+    const filename = this.getDownloadFilename(contentDisposition, 'translation_config.json');
 
     // Download file
     const blob = await response.blob();
@@ -291,9 +338,12 @@ class APIClient {
       body: formData,
     });
 
+    if (this.handleUnauthorized(response)) {
+      throw new Error('Unauthorized');
+    }
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.detail || 'Failed to import settings');
+      const error = await this.parseResponseBody(response);
+      throw new Error(this.responseErrorMessage(error, 'Failed to import settings'));
     }
 
     return response.json();
@@ -317,11 +367,24 @@ class APIClient {
       });
 
       xhr.addEventListener('load', () => {
-        if (xhr.status === 200) {
-          resolve(JSON.parse(xhr.responseText));
-        } else {
-          reject(new Error('Upload failed'));
+        if (xhr.status === 401) {
+          this.clearToken();
+          window.location.href = '/login.html';
+          reject(new Error('Unauthorized'));
+          return;
         }
+        let data = {};
+        try {
+          data = JSON.parse(xhr.responseText || '{}');
+        } catch (error) {
+          reject(new Error('服务器返回了无效响应'));
+          return;
+        }
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve(data);
+          return;
+        }
+        reject(new Error(this.responseErrorMessage(data, 'Upload failed')));
       });
 
       xhr.addEventListener('error', () => reject(new Error('Upload failed')));
@@ -348,8 +411,12 @@ class APIClient {
       body: formData,
     });
 
+    if (this.handleUnauthorized(response)) {
+      throw new Error('Unauthorized');
+    }
     if (!response.ok) {
-      throw new Error('Translation failed to start');
+      const data = await this.parseResponseBody(response);
+      throw new Error(this.responseErrorMessage(data, 'Translation failed to start'));
     }
 
     return response.json();
@@ -365,8 +432,8 @@ class APIClient {
   /**
    * Get translation history
    */
-  async getTranslationHistory() {
-    return this.request('/api/translate/history');
+  async getTranslationHistory(limit = 200, offset = 0) {
+    return this.request(`/api/translate/history?limit=${limit}&offset=${offset}`);
   }
 
   /**
@@ -382,6 +449,12 @@ class APIClient {
   async deleteHistoryItem(taskId) {
     return this.request(`/api/translate/history/${taskId}`, {
       method: 'DELETE'
+    });
+  }
+
+  async deleteUploadedFile(fileId) {
+    return this.request(`/api/upload/${encodeURIComponent(fileId)}`, {
+      method: 'DELETE',
     });
   }
 }

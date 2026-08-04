@@ -17,6 +17,7 @@ test
 tests
 static
 data
+babeldoc-cache
 # Byte-compiled / optimized / DLL files
 *.py[cod]
 *$py.class
@@ -190,6 +191,7 @@ cython_debug/
 *.sqlite3-*
 .env.*
 !.env.example
+*.env
 *.pem
 *.key
 *.pdf

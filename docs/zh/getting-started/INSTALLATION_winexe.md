@@ -2,6 +2,8 @@
 
 ---
 
+> **范围说明：** 本页是官方 [`pdf2zh-next` Windows EXE](https://github.com/PDFMathTranslate-next/PDFMathTranslate-next) 的参考文档，不是 GBabelDocUI Web UI 文档。GBabelDocUI Web UI 请参阅 [`USAGE_webui.md`](./USAGE_webui.md) 和 Docker 部署说明。不要把 `pdf2zh_next` 替换为 `gbabeldocui`，因为两者的命令行参数不兼容。
+
 ### 通过 .exe 文件安装 PDFMathTranslate
 
 ***步骤 1*** | 从 [release page](https://github.com/PDFMathTranslate/PDFMathTranslate-next/releases) 下载 `pdf2zh-<version>-with-assets-win64.zip`。

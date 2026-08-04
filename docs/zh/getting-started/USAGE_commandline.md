@@ -2,6 +2,8 @@
 
 ---
 
+> **范围说明：** 本页是官方 [`pdf2zh-next` 命令行接口](https://github.com/PDFMathTranslate-next/PDFMathTranslate-next) 的参考文档，不是 GBabelDocUI Web UI 文档。GBabelDocUI Web UI 请参阅 [`USAGE_webui.md`](./USAGE_webui.md) 和 Docker 部署说明。不要把 `pdf2zh_next` 替换为 `gbabeldocui`，因为两者的命令行参数不兼容。
+
 ### 通过命令行使用 PDFMathTranslate
 
 #### 基本用法

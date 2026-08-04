@@ -178,15 +178,16 @@ yuan/
 
 # Local runtime data and credentials
 data/
+babeldoc-cache/
 *.db
 *.db-*
 *.sqlite
 *.sqlite3
 *.sqlite-*
 *.sqlite3-*
-.env
 .env.*
 !.env.example
+*.env
 *.pem
 *.key
 

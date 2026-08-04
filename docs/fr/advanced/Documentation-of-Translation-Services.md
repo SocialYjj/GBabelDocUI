@@ -2,6 +2,8 @@
 
 ---
 
+> **Périmètre :** Cette page est une référence pour la [documentation officielle des services de traduction de `pdf2zh-next`](https://github.com/PDFMathTranslate-next/PDFMathTranslate-next). Elle ne documente pas l'interface Web de GBabelDocUI. Pour l'interface Web de GBabelDocUI, consultez [`USAGE_webui.md`](../getting-started/USAGE_webui.md) et les instructions Docker. Ne remplacez pas `pdf2zh_next` par `gbabeldocui` : leurs arguments de ligne de commande ne sont pas compatibles.
+
 ### Visualisation des services de traduction disponibles via la ligne de commande
 
 Vous pouvez confirmer les services de traduction disponibles et leur utilisation en affichant le message d'aide dans la ligne de commande.
@@ -47,7 +49,7 @@ Each engine supports different languages. For details, please refer to:
 - If you encounter a usage limit, try switching to another engine or wait for a while before retrying.
 
 #### Feedback and Suggestions
-If you have any questions or suggestions about translation engines, please submit feedback via [GitHub Issues](https://github.com/your-repo/issues).
+If you have any questions or suggestions about translation engines, please submit feedback via [GitHub Issues](https://github.com/SocialYjj/GBabelDocUI/issues).
 
 ---
 
@@ -88,7 +90,7 @@ Chaque moteur supporte différentes langues. Pour plus de détails, veuillez vou
 - Si vous rencontrez une limite d'utilisation, essayez de passer à un autre moteur ou attendez un peu avant de réessayer.
 
 #### Retours et suggestions
-Si vous avez des questions ou des suggestions concernant les moteurs de traduction, veuillez soumettre vos retours via [GitHub Issues](https://github.com/your-repo/issues).
+Si vous avez des questions ou des suggestions concernant les moteurs de traduction, veuillez soumettre vos retours via [GitHub Issues](https://github.com/SocialYjj/GBabelDocUI/issues).
 
 ---
 
@@ -159,7 +161,7 @@ Actuellement, les moteurs de traduction de niveau 1 supportés incluent :
 - **Chinese (Traditional)**
 - **English**
 
-If you wish to contribute translations for other languages, please refer to [For Translators](https://pdf2zh-next.com/community/FOR_TRANSLATORS.html).
+If you wish to contribute translations for other languages, please refer to [For Translators](../community/Translate-Contribution-Guide.md).
 
 ---
 
@@ -170,7 +172,7 @@ If you wish to contribute translations for other languages, please refer to [For
 - **Chinois (Traditionnel)**
 - **Anglais**
 
-Si vous souhaitez contribuer aux traductions pour d'autres langues, veuillez vous référer au [Guide de contribution des traductions](https://pdf2zh-next.com/community/FOR_TRANSLATORS.html).
+Si vous souhaitez contribuer aux traductions pour d'autres langues, veuillez vous référer au [Guide de contribution des traductions](../community/Translate-Contribution-Guide.md).
 
 - **Google Translate**: Free, supports most languages, but may be unstable.
 - **DeepL Translate**: High accuracy, supports some languages, free version has usage limits.
@@ -276,7 +278,7 @@ To get started with **pdf2zh**, follow these steps:
 2. **Configuration**: Set up your preferred translation engine and API keys.
 3. **Usage**: Use the command line or web interface to translate your PDFs.
 
-For detailed instructions, see the [Installation](https://pdf2zh-next.com/getting-started/INSTALLATION.html) and [Usage](https://pdf2zh-next.com/getting-started/USAGE.html) guides.
+For detailed instructions, see the [Installation](../getting-started/INSTALLATION_docker.md) and [Usage](../getting-started/USAGE_webui.md) guides.
 
 ---
 
@@ -288,23 +290,23 @@ Pour commencer avec **pdf2zh**, suivez ces étapes :
 2. **Configuration** : Configurez votre moteur de traduction préféré et vos clés API.
 3. **Utilisation** : Utilisez la ligne de commande ou l'interface web pour traduire vos PDF.
 
-Pour des instructions détaillées, consultez les guides [Installation](https://pdf2zh-next.com/getting-started/INSTALLATION.html) et [Utilisation](https://pdf2zh-next.com/getting-started/USAGE.html).
+Pour des instructions détaillées, consultez les guides [Installation](../getting-started/INSTALLATION_docker.md) et [Utilisation](../getting-started/USAGE_webui.md).
 
 ---
 
 ### ORIGINAL TEXT
 
-If you encounter any issues or have questions, please check the [FAQ](https://pdf2zh-next.com/community/FAQ.html) or submit an issue on [GitHub](https://github.com/your-repo/issues).
+If you encounter any issues or have questions, please check the [FAQ](../FAQ.md) or submit an issue on [GitHub](https://github.com/SocialYjj/GBabelDocUI/issues).
 
-We welcome contributions! If you'd like to help improve **pdf2zh**, see the [For Translators](https://pdf2zh-next.com/community/FOR_TRANSLATORS.html) guide.
+We welcome contributions! If you'd like to help improve **pdf2zh**, see the [For Translators](../community/Translate-Contribution-Guide.md) guide.
 
 ---
 
 ### OUTPUT
 
-Si vous rencontrez des problèmes ou avez des questions, veuillez consulter la [FAQ](https://pdf2zh-next.com/community/FAQ.html) ou soumettre un problème sur [GitHub](https://github.com/your-repo/issues).
+Si vous rencontrez des problèmes ou avez des questions, veuillez consulter la [FAQ](../FAQ.md) ou soumettre un problème sur [GitHub](https://github.com/SocialYjj/GBabelDocUI/issues).
 
-Nous accueillons les contributions ! Si vous souhaitez aider à améliorer **pdf2zh**, consultez le guide [Guide de contribution des traductions](https://pdf2zh-next.com/community/FOR_TRANSLATORS.html).
+Nous accueillons les contributions ! Si vous souhaitez aider à améliorer **pdf2zh**, consultez le guide [Guide de contribution des traductions](../community/Translate-Contribution-Guide.md).
 
 ---
 
@@ -312,7 +314,7 @@ Nous accueillons les contributions ! Si vous souhaitez aider à améliorer **pdf
 
 - **Version**: 2.0.0
 - **License**: MIT
-- **Source Code**: [GitHub Repository](https://github.com/your-repo/pdf2zh)
+- **Source Code**: [GitHub Repository](https://github.com/PDFMathTranslate-next/PDFMathTranslate-next)
 
 ---
 
@@ -320,7 +322,7 @@ Nous accueillons les contributions ! Si vous souhaitez aider à améliorer **pdf
 
 - **Version** : 2.0.0
 - **Licence** : MIT
-- **Code Source** : [Dépôt GitHub](https://github.com/your-repo/pdf2zh)
+- **Code Source** : [Dépôt GitHub](https://github.com/PDFMathTranslate-next/PDFMathTranslate-next)
 
 ---
 
@@ -364,7 +366,7 @@ To get started with **pdf2zh**, follow these steps:
 2. **Configuration**: Set up your preferred translation engine and API keys.
 3. **Usage**: Use the command line or web interface to translate your PDFs.
 
-For detailed instructions, see the [Installation](https://pdf2zh-next.com/getting-started/INSTALLATION.html) and [Usage](https://pdf2zh-next.com/getting-started/USAGE.html) guides.
+For detailed instructions, see the [Installation](../getting-started/INSTALLATION_docker.md) and [Usage](../getting-started/USAGE_webui.md) guides.
 
 ---
 
@@ -376,23 +378,23 @@ Pour commencer avec **pdf2zh**, suivez ces étapes :
 2. **Configuration** : Configurez votre moteur de traduction préféré et vos clés API.
 3. **Utilisation** : Utilisez la ligne de commande ou l'interface web pour traduire vos PDF.
 
-Pour des instructions détaillées, consultez les guides [Installation](https://pdf2zh-next.com/getting-started/INSTALLATION.html) et [Utilisation](https://pdf2zh-next.com/getting-started/USAGE.html).
+Pour des instructions détaillées, consultez les guides [Installation](../getting-started/INSTALLATION_docker.md) et [Utilisation](../getting-started/USAGE_webui.md).
 
 ---
 
 ### ORIGINAL TEXT
 
-If you encounter any issues or have questions, please check the [FAQ](https://pdf2zh-next.com/community/FAQ.html) or submit an issue on [GitHub](https://github.com/your-repo/issues).
+If you encounter any issues or have questions, please check the [FAQ](../FAQ.md) or submit an issue on [GitHub](https://github.com/SocialYjj/GBabelDocUI/issues).
 
-We welcome contributions! If you'd like to help improve **pdf2zh**, see the [For Translators](https://pdf2zh-next.com/community/FOR_TRANSLATORS.html) guide.
+We welcome contributions! If you'd like to help improve **pdf2zh**, see the [For Translators](../community/Translate-Contribution-Guide.md) guide.
 
 ---
 
 ### OUTPUT
 
-Si vous rencontrez des problèmes ou avez des questions, veuillez consulter la [FAQ](https://pdf2zh-next.com/community/FAQ.html) ou soumettre un problème sur [GitHub](https://github.com/your-repo/issues).
+Si vous rencontrez des problèmes ou avez des questions, veuillez consulter la [FAQ](../FAQ.md) ou soumettre un problème sur [GitHub](https://github.com/SocialYjj/GBabelDocUI/issues).
 
-Nous accueillons les contributions ! Si vous souhaitez aider à améliorer **pdf2zh**, consultez le guide [Guide de contribution des traductions](https://pdf2zh-next.com/community/FOR_TRANSLATORS.html).
+Nous accueillons les contributions ! Si vous souhaitez aider à améliorer **pdf2zh**, consultez le guide [Guide de contribution des traductions](../community/Translate-Contribution-Guide.md).
 
 ---
 
@@ -400,7 +402,7 @@ Nous accueillons les contributions ! Si vous souhaitez aider à améliorer **pdf
 
 - **Version**: 2.0.0
 - **License**: MIT
-- **Source Code**: [GitHub Repository](https://github.com/your-repo/pdf2zh)
+- **Source Code**: [GitHub Repository](https://github.com/PDFMathTranslate-next/PDFMathTranslate-next)
 
 ---
 
@@ -408,7 +410,7 @@ Nous accueillons les contributions ! Si vous souhaitez aider à améliorer **pdf
 
 - **Version** : 2.0.0
 - **Licence** : MIT
-- **Code Source** : [Dépôt GitHub](https://github.com/your-repo/pdf2zh)
+- **Code Source** : [Dépôt GitHub](https://github.com/PDFMathTranslate-next/PDFMathTranslate-next)
 
 ---
 
@@ -420,12 +422,12 @@ Welcome to the **pdf2zh** documentation! This guide will help you get started wi
 
 ## Table of Contents
 
-- [Installation](https://pdf2zh-next.com/getting-started/INSTALLATION.html)
-- [Usage](https://pdf2zh-next.com/getting-started/USAGE.html)
-- [Advanced](https://pdf2zh-next.com/advanced/ADVANCED.html)
-- [Supported Languages](https://pdf2zh-next.com/advanced/SUPPORTED_LANGUAGES.html)
-- [Community](https://pdf2zh-next.com/community/COMMUNITY.html)
-- [FAQ](https://pdf2zh-next.com/community/FAQ.html)
+- [Installation](../getting-started/INSTALLATION_docker.md)
+- [Usage](../getting-started/USAGE_webui.md)
+- [Advanced](./advanced.md)
+- [Supported Languages](../supported_languages.md)
+- [Community](../community/Contribution-Guide.md)
+- [FAQ](../FAQ.md)
 
 ## Overview
 
@@ -447,19 +449,19 @@ To get started with **pdf2zh**, follow these steps:
 2. **Configuration**: Set up your preferred translation engine and API keys.
 3. **Usage**: Use the command line or web interface to translate your PDFs.
 
-For detailed instructions, see the [Installation](https://pdf2zh-next.com/getting-started/INSTALLATION.html) and [Usage](https://pdf2zh-next.com/getting-started/USAGE.html) guides.
+For detailed instructions, see the [Installation](../getting-started/INSTALLATION_docker.md) and [Usage](../getting-started/USAGE_webui.md) guides.
 
 ## Support
 
-If you encounter any issues or have questions, please check the [FAQ](https://pdf2zh-next.com/community/FAQ.html) or submit an issue on [GitHub](https://github.com/your-repo/issues).
+If you encounter any issues or have questions, please check the [FAQ](../FAQ.md) or submit an issue on [GitHub](https://github.com/SocialYjj/GBabelDocUI/issues).
 
-We welcome contributions! If you'd like to help improve **pdf2zh**, see the [For Translators](https://pdf2zh-next.com/community/FOR_TRANSLATORS.html) guide.
+We welcome contributions! If you'd like to help improve **pdf2zh**, see the [For Translators](../community/Translate-Contribution-Guide.md) guide.
 
 ---
 
 **Version**: 2.0.0  
 **License**: MIT  
-**Source Code**: [GitHub Repository](https://github.com/your-repo/pdf2zh)
+**Source Code**: [GitHub Repository](https://github.com/PDFMathTranslate-next/PDFMathTranslate-next)
 
 ---
 
@@ -471,12 +473,12 @@ Bienvenue dans la documentation de **pdf2zh** ! Ce guide vous aidera à commence
 
 ## Table des matières
 
-- [Installation](https://pdf2zh-next.com/getting-started/INSTALLATION.html)
-- [Utilisation](https://pdf2zh-next.com/getting-started/USAGE.html)
-- [Options avancées](https://pdf2zh-next.com/advanced/ADVANCED.html)
-- [Langues supportées](https://pdf2zh-next.com/advanced/SUPPORTED_LANGUAGES.html)
-- [Communauté](https://pdf2zh-next.com/community/COMMUNITY.html)
-- [FAQ](https://pdf2zh-next.com/community/FAQ.html)
+- [Installation](../getting-started/INSTALLATION_docker.md)
+- [Utilisation](../getting-started/USAGE_webui.md)
+- [Options avancées](./advanced.md)
+- [Langues supportées](../supported_languages.md)
+- [Communauté](../community/Contribution-Guide.md)
+- [FAQ](../FAQ.md)
 
 ## Aperçu
 
@@ -498,19 +500,19 @@ Pour commencer avec **pdf2zh**, suivez ces étapes :
 2. **Configuration** : Configurez votre moteur de traduction préféré et vos clés API.
 3. **Utilisation** : Utilisez la ligne de commande ou l'interface web pour traduire vos PDF.
 
-Pour des instructions détaillées, consultez les guides [Installation](https://pdf2zh-next.com/getting-started/INSTALLATION.html) et [Utilisation](https://pdf2zh-next.com/getting-started/USAGE.html).
+Pour des instructions détaillées, consultez les guides [Installation](../getting-started/INSTALLATION_docker.md) et [Utilisation](../getting-started/USAGE_webui.md).
 
 ## Support
 
-Si vous rencontrez des problèmes ou avez des questions, veuillez consulter la [FAQ](https://pdf2zh-next.com/community/FAQ.html) ou soumettre un problème sur [GitHub](https://github.com/your-repo/issues).
+Si vous rencontrez des problèmes ou avez des questions, veuillez consulter la [FAQ](../FAQ.md) ou soumettre un problème sur [GitHub](https://github.com/SocialYjj/GBabelDocUI/issues).
 
-Nous accueillons les contributions ! Si vous souhaitez aider à améliorer **pdf2zh**, consultez le guide [Guide de contribution des traductions](https://pdf2zh-next.com/community/FOR_TRANSLATORS.html).
+Nous accueillons les contributions ! Si vous souhaitez aider à améliorer **pdf2zh**, consultez le guide [Guide de contribution des traductions](../community/Translate-Contribution-Guide.md).
 
 ---
 
 **Version** : 2.0.0  
 **Licence** : MIT  
-**Code Source** : [Dépôt GitHub](https://github.com/your-repo/pdf2zh)
+**Code Source** : [Dépôt GitHub](https://github.com/PDFMathTranslate-next/PDFMathTranslate-next)
 
 ---
 

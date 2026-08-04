@@ -2,7 +2,7 @@
 
 ---
 
-### Использование PDFMathTranslate через Webui
+### Использование GBabelDocUI через Webui
 
 #### Как открыть страницу WebUI:
 
@@ -15,7 +15,7 @@
 3. Начните использование в браузере:
 
     ```bash
-    pdf2zh_next --gui
+    gbabeldocui
     ```
 
 4. Если ваш браузер не запустился автоматически, перейдите по адресу:
@@ -26,22 +26,21 @@
 
     Перетащите `PDF` файл в окно и нажмите `Translate`.
 
-5. Если вы развертываете PDFMathTranslate с помощью docker и используете ollama в качестве бэкенд LLM для PDFMathTranslate, вам следует указать "Ollama host" как:
+5. Если вы развертываете GBabelDocUI с помощью docker и используете ollama в качестве бэкенд LLM для GBabelDocUI, вам следует указать "Ollama host" как:
 
    ```bash
    http://host.docker.internal:11434
    ```
 
+> **Примечание по безопасности:** Ollama — серверная служба, доступная только администраторам. Частная конечная точка `http://host.docker.internal:11434` по умолчанию отклоняется. Устанавливайте `GBABELDOCUI_ALLOW_PRIVATE_ENDPOINTS=true` в окружении контейнера только при доверенном развертывании. Эта настройка ослабляет защиту от SSRF; не включайте ее, если к GBabelDocUI могут обращаться ненадежные пользователи.
+
 <!-- <img src="./../../images/gui.gif" width="500"/> -->
 <img src='./../../images/gui.gif' width="500"/>
+### Configure the translation
 
-### Переменные среды
+Use the GBabelDocUI settings page to choose the translation service, source and target languages, PDF outputs, page range and advanced options. The selected settings are saved per user and are snapshotted when a task starts.
 
-Вы можете установить исходный и целевой языки с помощью переменных среды:
-
-- `PDF2ZH_LANG_FROM`: Устанавливает исходный язык. По умолчанию "English".
-- `PDF2ZH_LANG_TO`: Устанавливает целевой язык. По умолчанию "Simplified Chinese".
-
+When running the Docker container, keep `./data` mounted to `/app/data`. The default Compose deployment listens on `127.0.0.1:7860`; use an HTTPS reverse proxy for public access. The translation executor is designed for one application process and one shared data directory.
 ## Предпросмотр
 
 <img src="./../../images/before.png" width="500"/>

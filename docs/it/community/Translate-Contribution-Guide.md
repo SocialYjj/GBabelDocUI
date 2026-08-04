@@ -1,40 +1,13 @@
-# Suggerimenti per migliorare le traduzioni della documentazione
+# Improving Documentation Translations
 
-Grazie per il tuo interesse in questo progetto! La documentazione non in inglese è tradotta automaticamente da modelli linguistici di grandi dimensioni, quindi gli errori sono inevitabili. Se noti problemi in una lingua con cui hai familiarità, ti diamo il benvenuto a suggerire miglioramenti.
+GBabelDocUI does not use an external Weblate project. Documentation translations are reviewed through normal pull requests in [SocialYjj/GBabelDocUI](https://github.com/SocialYjj/GBabelDocUI).
 
-Prima di iniziare a contribuire, ti invitiamo a leggere la seguente guida per aiutare a garantire che i tuoi suggerimenti possano essere accettati senza problemi.
+## How to contribute
 
-# Invia suggerimenti tramite Weblate
+1. Choose the relevant file under `docs/<locale>/`.
+2. Keep commands, environment variable names, API paths and file paths identical to the canonical documentation.
+3. Do not add real accounts, API keys, tokens, PDFs, generated outputs or VPS data to documentation examples.
+4. Run `git diff --check` and, when possible, `uv run mkdocs build` before opening a pull request.
+5. Describe the language and pages changed in the pull request.
 
-Utilizziamo [Weblate](https://weblate.org/) per gestire le traduzioni della nostra documentazione. Puoi verificare lo stato attuale della traduzione e inviare suggerimenti sulla [pagina Weblate del progetto](https://hosted.weblate.org/projects/pdfmathtranslate-next/).
-
-## Come inviare un suggerimento
-
-È molto semplice proporre miglioramenti alle traduzioni tramite Weblate, e non è nemmeno necessario registrare un account. Continua a leggere per il processo passo dopo passo.
-
-Supponi di voler migliorare la prima frase nella sezione "命令行参数" di [高级选项 → 高级](docs/en/advanced/advanced.md):
-
-1. Apri la [pagina Weblate del progetto](https://hosted.weblate.org/projects/pdfmathtranslate-next/).
-
-2. Clicca `Search` in alto.
-
-<img src="./../../images/weblate/homepage.png" width="420px" alt="homepage"/>
-
-3. In "Filtro", inserisci il segmento di testo che desideri trovare. Anche un testo parziale va bene.
-
-<img src="./../../images/weblate/search.png" alt="search"/>
-
-Quando hai finito, premi <kbd>Enter</kbd>.
-
-4. Dopo aver premuto <kbd>Invio</kbd>, verrai portato alla pagina dei risultati di ricerca. Clicca sul risultato che preferisci per aprire la vista di modifica.
-
-<img src="./../../images/weblate/search-result.png" alt="search result"/>
-
-5. Nella vista di modifica, apporta le tue modifiche alla traduzione. Una volta terminato, fai clic su <kbd>Suggerisci</kbd>. Tutto qui: hai completato con successo un contributo.
-
-<img src="./../../images/weblate/suggestion.png" alt="suggestion"/>
-
-Esamineremo il tuo suggerimento dopo che sarà stato inviato. Una volta approvato, le tue modifiche appariranno nella documentazione.
-
-<div align="right"> 
-<h6><small>Parte del contenuto di questa pagina è stata tradotta da GPT e potrebbe contenere errori.</small></h6>
+If a translation conflicts with the current Web UI behavior, update the documentation to match the repository implementation and mention the discrepancy in the pull request. English and Chinese are the reference pages for deployment and behavior; other language pages should not reintroduce instructions for the upstream project.

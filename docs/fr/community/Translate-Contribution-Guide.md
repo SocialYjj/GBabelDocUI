@@ -1,40 +1,13 @@
-# Suggestions d'amélioration pour les traductions de la documentation
+# Improving Documentation Translations
 
-Merci pour votre intérêt pour ce projet ! La documentation non-anglaise est automatiquement traduite par des modèles de langage volumineux, donc des erreurs sont inévitables. Si vous remarquez des problèmes dans une langue que vous maîtrisez, nous vous encourageons vivement à soumettre vos suggestions d'amélioration.
+GBabelDocUI does not use an external Weblate project. Documentation translations are reviewed through normal pull requests in [SocialYjj/GBabelDocUI](https://github.com/SocialYjj/GBabelDocUI).
 
-Avant de commencer à contribuer, veuillez prendre un moment pour lire le guide suivant afin de vous assurer que vos suggestions puissent être acceptées sans problème.
+## How to contribute
 
-# Soumettre des suggestions via Weblate
+1. Choose the relevant file under `docs/<locale>/`.
+2. Keep commands, environment variable names, API paths and file paths identical to the canonical documentation.
+3. Do not add real accounts, API keys, tokens, PDFs, generated outputs or VPS data to documentation examples.
+4. Run `git diff --check` and, when possible, `uv run mkdocs build` before opening a pull request.
+5. Describe the language and pages changed in the pull request.
 
-Nous utilisons [Weblate](https://weblate.org/) pour gérer les traductions de notre documentation. Vous pouvez consulter l'état actuel des traductions et soumettre des suggestions sur la [page Weblate du projet](https://hosted.weblate.org/projects/pdfmathtranslate-next/).
-
-## Comment soumettre une suggestion
-
-Il est très simple de proposer des améliorations de traduction via Weblate, et vous n'avez même pas besoin de créer un compte. Lisez la suite pour connaître le processus étape par étape.
-
-Supposons que vous souhaitiez améliorer la première phrase de la section "命令行参数" dans [高级选项 → 高级](docs/en/advanced/advanced.md) :
-
-1. Ouvrez la [page Weblate du projet](https://hosted.weblate.org/projects/pdfmathtranslate-next/).
-
-2. Cliquez sur `Search` en haut.
-
-<img src="./../../images/weblate/homepage.png" width="420px" alt="homepage"/>
-
-3. Dans "Filtre", entrez le segment de texte que vous souhaitez trouver. Un texte partiel est acceptable.
-
-<img src="./../../images/weblate/search.png" alt="search"/>
-
-Lorsque vous avez terminé, appuyez sur <kbd>Entrée</kbd>.
-
-4. Après avoir appuyé sur <kbd>Entrée</kbd>, vous serez redirigé vers la page des résultats de recherche. Cliquez sur le résultat que vous préférez pour ouvrir la vue d'édition.
-
-<img src="./../../images/weblate/search-result.png" alt="search result"/>
-
-5. Dans la vue d'édition, apportez vos modifications à la traduction. Une fois terminé, cliquez sur <kbd>Suggérer</kbd>. C'est tout—vous avez réussi à effectuer une contribution.
-
-<img src="./../../images/weblate/suggestion.png" alt="suggestion"/>
-
-Nous examinerons votre suggestion après sa soumission. Une fois approuvée, vos modifications apparaîtront dans la documentation.
-
-<div align="right"> 
-<h6><small>Une partie du contenu de cette page a été traduite par GPT et peut contenir des erreurs.</small></h6>
+If a translation conflicts with the current Web UI behavior, update the documentation to match the repository implementation and mention the discrepancy in the pull request. English and Chinese are the reference pages for deployment and behavior; other language pages should not reintroduce instructions for the upstream project.

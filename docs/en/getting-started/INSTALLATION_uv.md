@@ -2,6 +2,8 @@
 
 ---
 
+> **Scope note:** This page is a reference for the official [`pdf2zh-next` uv installation](https://github.com/PDFMathTranslate-next/PDFMathTranslate-next). It does **not** document the GBabelDocUI Web UI. Use [`USAGE_webui.md`](./USAGE_webui.md) and the Docker instructions for the GBabelDocUI Web UI. Do not replace `pdf2zh_next` with `gbabeldocui`; their command-line arguments are not compatible.
+
 ### Install PDFMathTranslate via uv
 
 #### What is uv? How to install it?

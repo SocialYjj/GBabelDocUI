@@ -103,11 +103,17 @@
                                 <option value="AzureOpenAI">Azure OpenAI</option>
                                 <option value="OpenAI">OpenAI</option>
                                 <option value="GoogleGemini">Google Gemini</option>
+                                <option value="Gemini">Gemini</option>
                                 <option value="DeepL">DeepL</option>
-                                <option value="Ollama">Ollama</option>
+                                <option value="Ollama" data-admin-only>Ollama (administrator)</option>
+                                <option value="SiliconFlow">SiliconFlow</option>
+                                <option value="DeepSeek">DeepSeek</option>
+                                <option value="Zhipu">Zhipu</option>
                                 <option value="Bing">Bing</option>
                                 <option value="Google">Google</option>
-                                <option value="Tencent">Tencent</option>
+                                <option value="TencentMechineTranslation">Tencent</option>
+                                <option value="Claude" data-admin-only>Claude (administrator)</option>
+                                <option value="ClaudeCode" data-admin-only>Claude Code (administrator)</option>
                                 <option value="SiliconFlowFree">SiliconFlow Free</option>
                             </select>
                         </div>
@@ -498,15 +504,15 @@
                             <label class="form-label" data-i18n="settings.advanced.split_factor">Short Line Split
                                 Factor</label>
                             <input type="range" class="form-input" id="split-factor" min="0.1" max="1.0" step="0.1"
-                                value="0.5">
+                                value="0.8">
                             <small class="form-help"><span
                                     data-i18n="settings.advanced.split_factor.label">Threshold</span>: <span
-                                    id="split-factor-value">0.5</span></small>
+                                    id="split-factor-value">0.8</span></small>
                         </div>
 
                         <div class="form-group">
                             <label>
-                                <input type="checkbox" id="translate-tables">
+                                <input type="checkbox" id="translate-tables" checked>
                                 <span data-i18n="settings.advanced.translate_tables">Translate Table Text
                                     (Experimental)</span>
                             </label>
@@ -578,7 +584,7 @@
 
                         <div class="form-group" id="rpm-group" style="display: none;">
                             <label class="form-label" data-i18n="settings.rate.rpm">Requests Per Minute</label>
-                            <input type="number" class="form-input" id="rpm-input" min="1" value="240">
+                            <input type="number" class="form-input" id="rpm-input" min="60" value="240">
                         </div>
 
                         <div class="form-group" id="concurrent-group" style="display: none;">
@@ -608,6 +614,17 @@
                                 <option value="AzureOpenAI">Azure OpenAI</option>
                                 <option value="OpenAI">OpenAI</option>
                                 <option value="GoogleGemini">Google Gemini</option>
+                                <option value="Gemini">Gemini</option>
+                                <option value="DeepL">DeepL</option>
+                                <option value="Ollama" data-admin-only>Ollama (administrator)</option>
+                                <option value="SiliconFlow">SiliconFlow</option>
+                                <option value="DeepSeek">DeepSeek</option>
+                                <option value="Zhipu">Zhipu</option>
+                                <option value="Bing">Bing</option>
+                                <option value="Google">Google</option>
+                                <option value="TencentMechineTranslation">Tencent</option>
+                                <option value="Claude" data-admin-only>Claude (administrator)</option>
+                                <option value="ClaudeCode" data-admin-only>Claude Code (administrator)</option>
                             </select>
                         </div>
 
@@ -622,7 +639,7 @@
 
                         <div class="form-group" id="term-rpm-group" style="display: none;">
                             <label class="form-label" data-i18n="settings.rate.term.rpm">Term RPM</label>
-                            <input type="number" class="form-input" id="term-rpm" min="1" value="240">
+                            <input type="number" class="form-input" id="term-rpm" min="60" value="240">
                         </div>
 
                         <div class="form-group" id="term-concurrent-group" style="display: none;">
@@ -675,20 +692,20 @@
                             <label class="form-label" data-i18n="settings.babeldoc.iou_threshold">Non-Formula Line IoU
                                 Threshold</label>
                             <input type="range" class="form-input" id="iou-threshold" min="0" max="1" step="0.05"
-                                value="0.5">
+                                value="0.9">
                             <small class="form-help"><span
                                     data-i18n="settings.babeldoc.iou_threshold.label">Threshold</span>: <span
-                                    id="iou-threshold-value">0.5</span></small>
+                                    id="iou-threshold-value">0.9</span></small>
                         </div>
 
                         <div class="form-group">
                             <label class="form-label" data-i18n="settings.babeldoc.protection_threshold">Figure/Table
                                 Protection Threshold</label>
                             <input type="range" class="form-input" id="protection-threshold" min="0" max="1" step="0.05"
-                                value="0.5">
+                                value="0.9">
                             <small class="form-help"><span
                                     data-i18n="settings.babeldoc.iou_threshold.label">Threshold</span>: <span
-                                    id="protection-threshold-value">0.5</span></small>
+                                    id="protection-threshold-value">0.9</span></small>
                         </div>
 
                         <div class="form-group">
@@ -923,7 +940,8 @@
 
             // Populate all form fields
             // Basic settings
-            const service = settings.service || 'AzureOpenAI';
+            const service = settings.service || 'SiliconFlowFree';
+            ensureSavedOption('service', service);
             document.getElementById('service').value = service;
 
             // Load service-specific settings
@@ -931,8 +949,8 @@
                 document.getElementById('openai-model').value = settings.openai_model || 'gpt-4o-mini';
                 document.getElementById('openai-api-key').value = settings.openai_api_key || '';
                 document.getElementById('openai-base-url').value = settings.openai_base_url || '';
-                document.getElementById('openai-timeout').value = settings.openai_timeout || '';
-                document.getElementById('openai-temperature').value = settings.openai_temperature || '';
+                document.getElementById('openai-timeout').value = settings.openai_timeout ?? '';
+                document.getElementById('openai-temperature').value = settings.openai_temperature ?? '';
                 document.getElementById('openai-send-temperature').checked = settings.openai_send_temprature || false;
                 document.getElementById('openai-reasoning-effort').value = settings.openai_reasoning_effort || '';
                 document.getElementById('openai-send-reasoning-effort').checked = settings.openai_send_reasoning_effort || false;
@@ -951,6 +969,7 @@
             document.getElementById('lang-from').value = settings.lang_from || 'auto';
             document.getElementById('lang-to').value = settings.lang_to || 'zh';
             document.getElementById('page-range').value = settings.page_range || 'all';
+            document.getElementById('custom-pages').value = settings.custom_pages || '';
             document.getElementById('ignore-cache').checked = settings.ignore_cache || false;
 
             // PDF output
@@ -963,7 +982,7 @@
 
             // Advanced
             document.getElementById('custom-system-prompt').value = settings.custom_system_prompt || '';
-            document.getElementById('min-text-length').value = settings.min_text_length || 5;
+            document.getElementById('min-text-length').value = settings.min_text_length ?? 5;
             document.getElementById('primary-font').value = settings.primary_font || 'auto';
             document.getElementById('enable-term-extraction').checked = settings.enable_term_extraction || false;
             document.getElementById('save-glossary').checked = settings.save_glossary || false;
@@ -974,35 +993,36 @@
             document.getElementById('disable-rich-text').checked = settings.disable_rich_text || false;
             document.getElementById('enhance-compatibility').checked = settings.enhance_compatibility || false;
             document.getElementById('split-short-lines').checked = settings.split_short_lines || false;
-            document.getElementById('split-factor').value = settings.split_factor || 0.5;
-            document.getElementById('translate-tables').checked = settings.translate_tables || false;
+            document.getElementById('split-factor').value = settings.split_factor ?? 0.8;
+            document.getElementById('translate-tables').checked = settings.translate_tables ?? true;
             document.getElementById('skip-scanned-detection').checked = settings.skip_scanned_detection || false;
             document.getElementById('ocr-workaround').checked = settings.ocr_workaround || false;
             document.getElementById('auto-ocr').checked = settings.auto_ocr || false;
-            document.getElementById('max-pages-per-part').value = settings.max_pages_per_part || 0;
+            document.getElementById('max-pages-per-part').value = settings.max_pages_per_part ?? 0;
             document.getElementById('formula-font-pattern').value = settings.formula_font_pattern || '';
             document.getElementById('formula-char-pattern').value = settings.formula_char_pattern || '';
 
             // Rate limiting
             document.getElementById('rate-limit-mode').value = settings.rate_limit_mode || 'rpm';
-            document.getElementById('rpm-input').value = settings.rpm || 240;
-            document.getElementById('concurrent-threads').value = settings.concurrent_threads || 40;
-            document.getElementById('custom-qps').value = settings.custom_qps || 4;
-            document.getElementById('custom-workers').value = settings.custom_workers || 40;
+            document.getElementById('rpm-input').value = settings.rpm ?? 240;
+            document.getElementById('concurrent-threads').value = settings.concurrent_threads ?? 40;
+            document.getElementById('custom-qps').value = settings.custom_qps ?? 4;
+            document.getElementById('custom-workers').value = settings.custom_workers ?? 40;
 
             // Term extraction
+            ensureSavedOption('term-service', settings.term_service || 'same');
             document.getElementById('term-service').value = settings.term_service || 'same';
             document.getElementById('term-rate-mode').value = settings.term_rate_mode || 'rpm';
-            document.getElementById('term-rpm').value = settings.term_rpm || 240;
-            document.getElementById('term-concurrent').value = settings.term_concurrent || 40;
-            document.getElementById('term-qps').value = settings.term_qps || 4;
-            document.getElementById('term-workers').value = settings.term_workers || 40;
+            document.getElementById('term-rpm').value = settings.term_rpm ?? 240;
+            document.getElementById('term-concurrent').value = settings.term_concurrent ?? 40;
+            document.getElementById('term-qps').value = settings.term_qps ?? 4;
+            document.getElementById('term-workers').value = settings.term_workers ?? 40;
 
             // BabelDOC
             document.getElementById('merge-line-numbers').checked = settings.merge_line_numbers !== false;
             document.getElementById('remove-formula-lines').checked = settings.remove_formula_lines !== false;
-            document.getElementById('iou-threshold').value = settings.iou_threshold || 0.5;
-            document.getElementById('protection-threshold').value = settings.protection_threshold || 0.5;
+            document.getElementById('iou-threshold').value = settings.iou_threshold ?? 0.9;
+            document.getElementById('protection-threshold').value = settings.protection_threshold ?? 0.9;
             document.getElementById('skip-formula-offset').checked = settings.skip_formula_offset || false;
 
             // Trigger change events to show/hide conditional fields
@@ -1011,6 +1031,19 @@
             document.getElementById('split-short-lines').dispatchEvent(new Event('change'));
             document.getElementById('rate-limit-mode').dispatchEvent(new Event('change'));
             document.getElementById('term-rate-mode').dispatchEvent(new Event('change'));
+        }
+
+        function ensureSavedOption(selectId, value) {
+            if (!value) {
+                return;
+            }
+            const select = document.getElementById(selectId);
+            if ([...select.options].some(option => option.value === value)) {
+                return;
+            }
+            const option = new Option(`${value} (saved setting)`, value);
+            option.dataset.savedSetting = 'true';
+            select.appendChild(option);
         }
 
         async function saveAllSettings() {

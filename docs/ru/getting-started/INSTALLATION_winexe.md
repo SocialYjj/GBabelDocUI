@@ -2,6 +2,8 @@
 
 ---
 
+> **Примечание о назначении:** Эта страница является справочным материалом по официальной [Windows EXE-версии `pdf2zh-next`](https://github.com/PDFMathTranslate-next/PDFMathTranslate-next). Она не описывает Web UI GBabelDocUI. Описание Web UI GBabelDocUI приведено в [`USAGE_webui.md`](./USAGE_webui.md) и инструкции Docker. Не заменяйте `pdf2zh_next` на `gbabeldocui`: аргументы командной строки несовместимы.
+
 ### Установка PDFMathTranslate через файл .exe
 
 ***Шаг 1*** | Загрузите `pdf2zh-<version>-with-assets-win64.zip` со [страницы релизов](https://github.com/PDFMathTranslate/PDFMathTranslate-next/releases).

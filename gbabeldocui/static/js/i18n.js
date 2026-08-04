@@ -27,12 +27,9 @@ const translations = {
 
         // Upload Page
         'upload.title': 'Upload PDF',
-        'upload.subtitle': 'Upload a file or enter a URL to translate',
+        'upload.subtitle': 'Upload a PDF file to translate',
         'upload.drag': 'Drag and drop your PDF here',
         'upload.browse': 'or click to browse',
-        'upload.or': '— OR —',
-        'upload.url': 'PDF URL',
-        'upload.url.placeholder': 'https://example.com/document.pdf',
         'upload.pages': 'Pages to Translate',
         'upload.pages.all': 'All Pages',
         'upload.pages.first': 'First Page Only',
@@ -325,12 +322,9 @@ const translations = {
 
         // Upload Page
         'upload.title': '上传PDF',
-        'upload.subtitle': '上传文件或输入URL进行翻译',
+        'upload.subtitle': '上传PDF文件进行翻译',
         'upload.drag': '拖放您的PDF文件到这里',
         'upload.browse': '或点击浏览',
-        'upload.or': '— 或者 —',
-        'upload.url': 'PDF URL',
-        'upload.url.placeholder': 'https://example.com/document.pdf',
         'upload.pages': '翻译页面',
         'upload.pages.all': '所有页面',
         'upload.pages.first': '仅第一页',
@@ -602,13 +596,14 @@ const translations = {
 };
 
 // Current language
-let currentLang = localStorage.getItem('app_lang') || 'en';
+const savedLanguage = localStorage.getItem('app_lang');
+let currentLang = savedLanguage && translations[savedLanguage] ? savedLanguage : 'en';
 
 /**
  * Get translation for a key
  */
 function t(key) {
-    return translations[currentLang][key] || key;
+    return (translations[currentLang] && translations[currentLang][key]) || key;
 }
 
 /**

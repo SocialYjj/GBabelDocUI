@@ -21,11 +21,13 @@ dependencies = [
     "pdf2zh-next==2.8.2",
     "babeldoc==0.5.24",
     "httpx>=0.28.1",
+    "filelock>=3.15.0",
     "fastapi>=0.115.12",
     "uvicorn>=0.34.2",
     "bcrypt>=4.0.0",
     "PyJWT>=2.8.0",
     "python-multipart>=0.0.9",
+    "PyMuPDF>=1.25.2",
 ]
 
 [dependency-groups]
@@ -45,9 +47,9 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/eaiu/GBabelDocUI"
-Repository = "https://github.com/eaiu/GBabelDocUI"
-Issues = "https://github.com/eaiu/GBabelDocUI/issues"
+Homepage = "https://github.com/SocialYjj/GBabelDocUI"
+Repository = "https://github.com/SocialYjj/GBabelDocUI"
+Issues = "https://github.com/SocialYjj/GBabelDocUI/issues"
 
 [build-system]
 requires = ["hatchling"]

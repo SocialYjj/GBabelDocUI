@@ -1,6 +1,7 @@
 [**Opzioni avanzate**](./introduction.md) > **Opzioni avanzate** _(corrente)_
 
----
+> [!NOTE]
+> Questa pagina è solo un riferimento alle opzioni della riga di comando del runtime upstream pdf2zh-next. Non descrive l'interfaccia Web multiutente di GBabelDocUI. Avviare GBabelDocUI con gbabeldocui, aprire /login.html e configurare le opzioni di traduzione nella pagina delle impostazioni.
 
 <h3 id="toc">Indice dei contenuti</h3>
 
@@ -17,7 +18,6 @@
 - [#### Autenticazione e pagina di benvenuto](#autenticazione-e-pagina-di-benvenuto)
 - [#### Glossario Supportato](#glossario-supportato)
 
----
 
 #### Argomenti della Riga di Comando
 
@@ -98,7 +98,6 @@ Nella seguente tabella, elenchiamo tutte le opzioni avanzate per riferimento:
 
 [⬆️ Torna all'inizio](#toc)
 
----
 
 #### Guida alla configurazione della limitazione della frequenza
 
@@ -156,7 +155,6 @@ pdf2zh example.pdf --qps 45 --pool-max-worker 45
 
 [⬆️ Torna all'inizio](#toc)
 
----
 
 #### Traduzione parziale
 
@@ -195,7 +193,6 @@ Questo comando tradurrà la prima pagina, la terza pagina, le pagine da 10 a 20 
 
 [⬆️ Torna all'inizio](#toc)
 
----
 
 #### Specificare le lingue di origine e di destinazione
 
@@ -207,7 +204,6 @@ pdf2zh_next example.pdf --lang-in en -lang-out ja
 
 [⬆️ Torna all'inizio](#toc)
 
----
 
 #### Traduci con eccezioni
 
@@ -225,7 +221,6 @@ pdf2zh_next example.pdf --formular-font-pattern "(CM[^R]|MS.M|XY|MT|BL|RM|EU|LA|
 
 [⬆️ Torna all'inizio](#toc)
 
----
 
 #### Prompt personalizzato
 
@@ -239,7 +234,6 @@ pdf2zh_next example.pdf --custom-system-prompt "/no_think You are a professional
 
 [⬆️ Torna all'inizio](#toc)
 
----
 
 #### Configurazione personalizzata
 
@@ -300,7 +294,6 @@ Si prega di non modificare i file di configurazione nella directory `default`.
 
 [⬆️ Torna all'inizio](#toc)
 
----
 
 #### Salta pulizia
 
@@ -321,7 +314,6 @@ PDF2ZH_SKIP_CLEAN=TRUE pdf2zh_next example.pdf
 > [!TIP]
 > Quando `--enhance-compatibility` è abilitato, Salta pulizia viene automaticamente abilitato.
 
----
 
 #### Cache delle traduzioni
 
@@ -333,7 +325,6 @@ pdf2zh_next example.pdf --ignore-cache
 
 [⬆️ Torna all'inizio](#toc)
 
----
 
 #### Distribuzione come servizi pubblici
 
@@ -362,7 +353,6 @@ disable_config_auto_save = true
 
 [⬆️ Torna all'inizio](#toc)
 
----
 
 #### Autenticazione e pagina di benvenuto
 
@@ -411,7 +401,6 @@ welcome_page = "/path/to/welcome/html/file"
 
 [⬆️ Torna all'inizio](#toc)
 
----
 
 #### Glossario Supportato
 

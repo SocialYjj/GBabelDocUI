@@ -1,6 +1,7 @@
 [**Advanced**](./introduction.md) > **Advanced** _(current)_
 
----
+> [!NOTE]
+> This page is only a reference for the upstream pdf2zh-next command-line runtime. It does not describe the GBabelDocUI multi-user Web UI. Start GBabelDocUI with gbabeldocui, open /login.html, and configure translation options on the settings page.
 
 <h3 id="toc">Table of Contents</h3>
 
@@ -8,7 +9,7 @@
 - [Rate Limiting Configuration Guide](#rate-limiting-configuration-guide)
 - [Partial translation](#partial-translation)
 - [Specify source and target languages](#specify-source-and-target-languages)
-- [Translate wih exceptions](#translate-wih-exceptions)
+- [Translate with exceptions](#translate-with-exceptions)
 - [Custom prompt](#custom-prompt)
 - [Custom configuration](#custom-configuration)
 - [Skip clean](#skip-clean)
@@ -17,7 +18,6 @@
 - [Authentication and welcome page](#authentication-and-welcome-page)
 - [Glossary Support](#glossary-support)
 
----
 
 #### Command Line Args
 
@@ -98,7 +98,6 @@ In the following table, we list all advanced options for reference:
 
 [⬆️ Back to top](#toc)
 
----
 
 #### Rate Limiting Configuration Guide
 
@@ -156,7 +155,6 @@ pdf2zh example.pdf --qps 45 --pool-max-worker 45
 
 [⬆️ Back to top](#toc)
 
----
 
 #### Partial translation
 
@@ -196,7 +194,6 @@ This command will translate the first page, the third page, pages 10-20, and all
 
 [⬆️ Back to top](#toc)
 
----
 
 #### Specify source and target languages
 
@@ -208,9 +205,8 @@ pdf2zh_next example.pdf --lang-in en -lang-out ja
 
 [⬆️ Back to top](#toc)
 
----
 
-#### Translate wih exceptions
+#### Translate with exceptions
 
 Use regex to specify formula fonts and characters that need to be preserved:
 
@@ -226,7 +222,6 @@ pdf2zh_next example.pdf --formular-font-pattern "(CM[^R]|MS.M|XY|MT|BL|RM|EU|LA|
 
 [⬆️ Back to top](#toc)
 
----
 
 #### Custom prompt
 
@@ -240,7 +235,6 @@ pdf2zh_next example.pdf --custom-system-prompt "/no_think You are a professional
 
 [⬆️ Back to top](#toc)
 
----
 
 #### Custom configuration
 
@@ -257,7 +251,7 @@ There are multiple ways to modify and import the configuration file.
 
 - Modifying Configuration via **Command Line Arguments**
 
-For most cases, you can directly pass your desired settings through command line arguments. Please refer to [Command Line Args](#cmd) for more information.
+For most cases, you can directly pass your desired settings through command line arguments. Please refer to [Command Line Args](#command-line-args) for more information.
 
 For example, if you want to enable a GUI window, you can use the following command:
 
@@ -301,7 +295,6 @@ It is strongly recommended to refer to this configuration file's content and use
 
 [⬆️ Back to top](#toc)
 
----
 
 #### Skip clean
 
@@ -322,7 +315,6 @@ PDF2ZH_SKIP_CLEAN=TRUE pdf2zh_next example.pdf
 > [!TIP]
 > When `--enhance-compatibility` is enabled, Skip clean is automatically enabled.
 
----
 
 #### Translation cache
 
@@ -334,7 +326,6 @@ pdf2zh_next example.pdf --ignore-cache
 
 [⬆️ Back to top](#toc)
 
----
 
 #### Deployment as a public services
 
@@ -363,7 +354,6 @@ disable_config_auto_save = true
 
 [⬆️ Back to top](#toc)
 
----
 
 #### Authentication and welcome page
 
@@ -412,7 +402,6 @@ welcome_page = "/path/to/welcome/html/file"
 
 [⬆️ Back to top](#toc)
 
----
 
 #### Glossary Support
 

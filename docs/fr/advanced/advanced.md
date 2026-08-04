@@ -1,6 +1,7 @@
 [**Options avancées**](./introduction.md) > **Options avancées** _(actuel)_
 
----
+> [!NOTE]
+> Cette page est uniquement une référence des options de ligne de commande du runtime amont pdf2zh-next. Elle ne décrit pas l'interface Web multi-utilisateur de GBabelDocUI. Lancez GBabelDocUI avec gbabeldocui, ouvrez /login.html et configurez les options de traduction dans la page des paramètres.
 
 <h3 id="toc">Table des matières</h3>
 
@@ -17,7 +18,6 @@
 - [#### Authentication and welcome page](#authentication-and-welcome-page)
 - [#### Glossary Support](#glossary-support)
 
----
 
 #### Arguments de ligne de commande
 
@@ -98,7 +98,6 @@ Dans le tableau suivant, nous listons toutes les options avancées pour référe
 
 [⬆️ Retour en haut](#toc)
 
----
 
 #### Guide de configuration de la limitation de débit
 
@@ -156,7 +155,6 @@ pdf2zh example.pdf --qps 45 --pool-max-worker 45
 
 [⬆️ Retour en haut](#toc)
 
----
 
 #### Traduction partielle
 
@@ -195,7 +193,6 @@ Cette commande traduira la première page, la troisième page, les pages 10 à 2
 
 [⬆️ Retour en haut](#toc)
 
----
 
 #### Spécifier les langues source et cible
 
@@ -207,7 +204,6 @@ pdf2zh_next example.pdf --lang-in en -lang-out ja
 
 [⬆️ Retour en haut](#toc)
 
----
 
 #### Traduire avec exceptions
 
@@ -225,7 +221,6 @@ pdf2zh_next example.pdf --formular-font-pattern "(CM[^R]|MS.M|XY|MT|BL|RM|EU|LA|
 
 [⬆️ Retour en haut](#toc)
 
----
 
 #### Invite personnalisée
 
@@ -239,7 +234,6 @@ pdf2zh_next example.pdf --custom-system-prompt "/no_think You are a professional
 
 [⬆️ Retour en haut](#toc)
 
----
 
 #### Configuration personnalisée
 
@@ -300,7 +294,6 @@ Il est fortement recommandé de se référer au contenu de ce fichier de configu
 
 [⬆️ Retour en haut](#toc)
 
----
 
 #### Ignorer le nettoyage
 
@@ -321,7 +314,6 @@ PDF2ZH_SKIP_CLEAN=TRUE pdf2zh_next example.pdf
 > [!TIP]
 > Lorsque `--enhance-compatibility` est activé, Ignorer le nettoyage est automatiquement activé.
 
----
 
 #### Cache de traduction
 
@@ -333,7 +325,6 @@ pdf2zh_next example.pdf --ignore-cache
 
 [⬆️ Retour en haut](#toc)
 
----
 
 #### Déploiement en tant que services publics
 
@@ -362,7 +353,6 @@ disable_config_auto_save = true
 
 [⬆️ Retour en haut](#toc)
 
----
 
 #### Authentification et page d'accueil
 
@@ -411,7 +401,6 @@ welcome_page = "/path/to/welcome/html/file"
 
 [⬆️ Retour en haut](#toc)
 
----
 
 #### Prise en charge du glossaire
 

@@ -2,6 +2,8 @@
 
 ---
 
+> **対象範囲に関する注意:** このページは公式 [`pdf2zh-next` 翻訳サービスドキュメント](https://github.com/PDFMathTranslate-next/PDFMathTranslate-next) の参考資料です。GBabelDocUI Web UI の説明ではありません。GBabelDocUI Web UI については [`USAGE_webui.md`](../getting-started/USAGE_webui.md) と Docker の手順を参照してください。`pdf2zh_next` を `gbabeldocui` に置き換えないでください。コマンドライン引数には互換性がありません。
+
 ### コマンドラインで利用可能な翻訳サービスを表示
 
 コマンドラインでヘルプメッセージを表示することで、利用可能な翻訳サービスとその使い方を確認できます。
@@ -474,7 +476,7 @@ A: Please check the network connection and the status of the translation service
 
 ---
 
-If you encounter any issues, feel free to ask in the [Community](https://github.com/kevin2li/PDFMathTranslate/discussions) or check the [FAQ](https://pdf2zh-next.com/FAQ.html).
+If you encounter any issues, feel free to ask in the [Community](https://github.com/SocialYjj/GBabelDocUI/issues) or check the [FAQ](../FAQ.md).
 
 ---
 

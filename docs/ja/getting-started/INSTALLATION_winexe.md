@@ -2,6 +2,8 @@
 
 ---
 
+> **対象範囲に関する注意:** このページは公式 [`pdf2zh-next` Windows EXE](https://github.com/PDFMathTranslate-next/PDFMathTranslate-next) の参考資料です。GBabelDocUI Web UI の説明ではありません。GBabelDocUI Web UI については [`USAGE_webui.md`](./USAGE_webui.md) と Docker の手順を参照してください。`pdf2zh_next` を `gbabeldocui` に置き換えないでください。コマンドライン引数には互換性がありません。
+
 ### .exe ファイルで PDFMathTranslate をインストール
 
 ***ステップ 1*** | [リリースページ](https://github.com/PDFMathTranslate/PDFMathTranslate-next/releases) から `pdf2zh-<version>-with-assets-win64.zip` をダウンロードします。

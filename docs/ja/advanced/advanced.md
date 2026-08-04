@@ -1,6 +1,7 @@
 [**高度な設定**](./introduction.md) > **高度な設定** _(現在)_
 
----
+> [!NOTE]
+> このページは、上流の pdf2zh-next コマンドラインランタイムのオプションを参照するためのものです。GBabelDocUI のマルチユーザー Web UI の説明ではありません。GBabelDocUI は gbabeldocui で起動し、/login.html を開いて設定ページで翻訳オプションを設定してください。
 
 <h3 id="目次">目次</h3>
 
@@ -17,7 +18,6 @@
 - [認証とウェルカムページ](#認証とウェルカムページ)
 - [用語集サポート](#用語集サポート)
 
----
 
 #### コマンドライン引数
 
@@ -98,7 +98,6 @@
 
 [⬆️ トップに戻る](#toc)
 
----
 
 #### レート制限設定ガイド
 
@@ -156,7 +155,6 @@ pdf2zh example.pdf --qps 45 --pool-max-worker 45
 
 [⬆️ トップに戻る](#toc)
 
----
 
 #### 部分翻訳
 
@@ -196,7 +194,6 @@ pdf2zh_next example.pdf --pages "1,3,10-20,25-"
 
 [⬆️ トップに戻る](#toc)
 
----
 
 #### ソース言語とターゲット言語を指定する
 
@@ -208,7 +205,6 @@ pdf2zh_next example.pdf --lang-in en -lang-out ja
 
 [⬆️ トップに戻る](#toc)
 
----
 
 #### 例外付き翻訳
 
@@ -226,7 +222,6 @@ pdf2zh_next example.pdf --formular-font-pattern "(CM[^R]|MS.M|XY|MT|BL|RM|EU|LA|
 
 [⬆️ トップに戻る](#toc)
 
----
 
 #### カスタムプロンプト
 
@@ -240,7 +235,6 @@ pdf2zh_next example.pdf --custom-system-prompt "/no_think You are a professional
 
 [⬆️ トップに戻る](#toc)
 
----
 
 #### カスタム設定
 
@@ -301,7 +295,6 @@ pdf2zh_next --config-file '/path/config.toml'
 
 [⬆️ トップに戻る](#toc)
 
----
 
 #### クリーンスキップ
 
@@ -322,7 +315,6 @@ PDF2ZH_SKIP_CLEAN=TRUE pdf2zh_next example.pdf
 > [!TIP]
 > `--enhance-compatibility` が有効になっている場合、クリーンスキップは自動的に有効になります。
 
----
 
 #### 翻訳キャッシュ
 
@@ -334,7 +326,6 @@ pdf2zh_next example.pdf --ignore-cache
 
 [⬆️ トップに戻る](#toc)
 
----
 
 #### パブリックサービスとしてのデプロイ
 
@@ -363,7 +354,6 @@ disable_config_auto_save = true
 
 [⬆️ トップに戻る](#toc)
 
----
 
 #### 認証とウェルカムページ
 
@@ -412,7 +402,6 @@ welcome_page = "/path/to/welcome/html/file"
 
 [⬆️ トップに戻る](#toc)
 
----
 
 #### 用語集サポート
 

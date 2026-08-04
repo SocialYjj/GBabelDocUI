@@ -1,37 +1,13 @@
-# Suggesting Improvements to the Documentation Translations
+# Improving Documentation Translations
 
-Thank you for your interest in this project! The non‑English documentation is automatically translated by large language models, so mistakes are inevitable. If you notice issues in a language you are familiar with, we warmly welcome your suggestions for improvement.
+GBabelDocUI does not use an external Weblate project. Documentation translations are reviewed through normal pull requests in [SocialYjj/GBabelDocUI](https://github.com/SocialYjj/GBabelDocUI).
 
-Before you start contributing, please take a moment to read the following guide to help ensure your suggestions can be smoothly accepted.
+## How to contribute
 
-# Submit Suggestions via Weblate
+1. Choose the relevant file under `docs/<locale>/`.
+2. Keep commands, environment variable names, API paths and file paths identical to the canonical documentation.
+3. Do not add real accounts, API keys, tokens, PDFs, generated outputs or VPS data to documentation examples.
+4. Run `git diff --check` and, when possible, `uv run mkdocs build` before opening a pull request.
+5. Describe the language and pages changed in the pull request.
 
-We use [Weblate](https://weblate.org/) to manage our documentation translations. You can check the current translation status and submit suggestions on the [project's Weblate page](https://hosted.weblate.org/projects/pdfmathtranslate-next/).
-
-## How to submit a suggestion
-
-It's very simple to propose translation improvements via Weblate, and you don't even need to register an account. Read on for the step-by-step process.
-
-Assume you want to improve the first sentence in the "Command-line arguments" section of [Advanced → Advanced](docs/en/advanced/advanced.md):
-
-1. Open the [project's Weblate page](https://hosted.weblate.org/projects/pdfmathtranslate-next/).
-
-2. Click `Search` at the top.
-
-<img src="./../../images/weblate/homepage.png" width="420px" alt="homepage"/>
-
-3. In "Filter", enter the text segment you want to find. Partial text is fine.
-
-<img src="./../../images/weblate/search.png" alt="search"/>
-
-When you're done, press <kbd>Enter</kbd>.
-
-4. After pressing <kbd>Enter</kbd>, you'll be taken to the search results page. Click the result you prefer to open the edit view.
-
-<img src="./../../images/weblate/search-result.png" alt="search result"/>
-
-5. In the edit view, make your changes to the translation. When finished, click <kbd>Suggest</kbd>. That's it—you've successfully completed a contribution.
-
-<img src="./../../images/weblate/suggestion.png" alt="suggestion"/>
-
-We will review your suggestion after it's submitted. Once approved, your changes will appear in the documentation.
+If a translation conflicts with the current Web UI behavior, update the documentation to match the repository implementation and mention the discrepancy in the pull request. English and Chinese are the reference pages for deployment and behavior; other language pages should not reintroduce instructions for the upstream project.

@@ -2,7 +2,7 @@
 
 ---
 
-### Webui で PDFMathTranslate を使用する
+### Webui で GBabelDocUI を使用する
 
 #### WebUI ページを開く方法：
 
@@ -15,7 +15,7 @@ WebUI インターフェースを開く方法はいくつかあります。**Win
 3. ブラウザで使用開始：
 
     ```bash
-    pdf2zh_next --gui
+    gbabeldocui
     ```
 
 4. ブラウザが自動的に起動しない場合、次の URL にアクセス：
@@ -26,23 +26,22 @@ WebUI インターフェースを開く方法はいくつかあります。**Win
 
     PDF ファイルをウィンドウにドロップし、`Translate` をクリック。
 
-5. PDFMathTranslate を docker でデプロイし、PDFMathTranslate のバックエンド LLM として ollama を使用している場合、「Ollama host」に次のように入力：
+5. GBabelDocUI を docker でデプロイし、GBabelDocUI のバックエンド LLM として ollama を使用している場合、「Ollama host」に次のように入力：
 
    ```bash
    http://host.docker.internal:11434
    ```
 
+> **セキュリティに関する注意:** Ollama はサーバー側のサービスで、管理者のみ利用できます。プライベートエンドポイント `http://host.docker.internal:11434` はデフォルトで拒否されます。信頼できる環境でのみ、コンテナの環境変数に `GBABELDOCUI_ALLOW_PRIVATE_ENDPOINTS=true` を設定してください。この設定は SSRF 防御を緩和するため、信頼できないユーザーが GBabelDocUI にアクセスできる環境では有効にしないでください。
+
 <!-- <img src="./../../images/gui.gif" width="500"/> -->
 <img src='./../../images/gui.gif' width="500"/>
+### Configure the translation
 
-### 環境変数
+Use the GBabelDocUI settings page to choose the translation service, source and target languages, PDF outputs, page range and advanced options. The selected settings are saved per user and are snapshotted when a task starts.
 
-ソース言語とターゲット言語は環境変数を使用して設定できます：
-
-- `PDF2ZH_LANG_FROM`: ソース言語を設定します。デフォルトは「English」です。
-- `PDF2ZH_LANG_TO`: ターゲット言語を設定します。デフォルトは「Simplified Chinese」です。
-
-## プレビュー
+When running the Docker container, keep `./data` mounted to `/app/data`. The default Compose deployment listens on `127.0.0.1:7860`; use an HTTPS reverse proxy for public access. The translation executor is designed for one application process and one shared data directory.
+## Preview## プレビュー
 
 <img src="./../../images/before.png" width="500"/>
 <img src="./../../images/after.png" width="500"/>

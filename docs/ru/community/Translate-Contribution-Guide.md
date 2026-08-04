@@ -1,40 +1,13 @@
-# Предложения по улучшению переводов документации
+# Improving Documentation Translations
 
-Спасибо за ваш интерес к этому проекту! Документация на неанглийских языках автоматически переводится с помощью больших языковых моделей, поэтому ошибки неизбежны. Если вы заметили проблемы в языке, с которым знакомы, мы с радостью приветствуем ваши предложения по улучшению.
+GBabelDocUI does not use an external Weblate project. Documentation translations are reviewed through normal pull requests in [SocialYjj/GBabelDocUI](https://github.com/SocialYjj/GBabelDocUI).
 
-Прежде чем начать вносить свой вклад, пожалуйста, уделите момент, чтобы прочитать следующее руководство, которое поможет убедиться, что ваши предложения могут быть легко приняты.
+## How to contribute
 
-# Отправка предложений через Weblate
+1. Choose the relevant file under `docs/<locale>/`.
+2. Keep commands, environment variable names, API paths and file paths identical to the canonical documentation.
+3. Do not add real accounts, API keys, tokens, PDFs, generated outputs or VPS data to documentation examples.
+4. Run `git diff --check` and, when possible, `uv run mkdocs build` before opening a pull request.
+5. Describe the language and pages changed in the pull request.
 
-Мы используем [Weblate](https://weblate.org/) для управления переводами нашей документации. Вы можете проверить текущий статус перевода и отправить предложения на [странице проекта в Weblate](https://hosted.weblate.org/projects/pdfmathtranslate-next/).
-
-## Как отправить предложение
-
-Очень просто предложить улучшения перевода через Weblate, и вам даже не нужно регистрировать аккаунт. Читайте дальше, чтобы узнать пошаговый процесс.
-
-Предположим, вы хотите улучшить первое предложение в разделе "命令行参数" документа [高级选项 → 高级](docs/en/advanced/advanced.md):
-
-1. Откройте [страницу проекта в Weblate](https://hosted.weblate.org/projects/pdfmathtranslate-next/).
-
-2. Нажмите `Search` вверху.
-
-<img src="./../../images/weblate/homepage.png" width="420px" alt="homepage"/>
-
-3. В поле "Фильтр" введите сегмент текста, который хотите найти. Достаточно части текста.
-
-<img src="./../../images/weblate/search.png" alt="search"/>
-
-Когда закончите, нажмите <kbd>Enter</kbd>.
-
-4. После нажатия <kbd>Enter</kbd> вы перейдёте на страницу результатов поиска. Нажмите на предпочтительный результат, чтобы открыть режим редактирования.
-
-<img src="./../../images/weblate/search-result.png" alt="search result"/>
-
-5. В режиме редактирования внесите изменения в перевод. По завершении нажмите <kbd>Предложить</kbd>. Вот и всё — вы успешно внесли свой вклад.
-
-<img src="./../../images/weblate/suggestion.png" alt="suggestion"/>
-
-Мы рассмотрим ваше предложение после его отправки. После одобрения ваши изменения появятся в документации.
-
-<div align="right"> 
-<h6><small>Часть содержимого этой страницы была переведена GPT и может содержать ошибки.</small></h6>
+If a translation conflicts with the current Web UI behavior, update the documentation to match the repository implementation and mention the discrepancy in the pull request. English and Chinese are the reference pages for deployment and behavior; other language pages should not reintroduce instructions for the upstream project.

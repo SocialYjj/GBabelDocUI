@@ -2,6 +2,8 @@
 
 ---
 
+> **說明：** 本頁是官方 `pdf2zh-next` 命令行參考，不是 GBabelDocUI 主 Web UI 的啟動方式。GBabelDocUI 的主入口是 `gbabeldocui`、`/login.html` 或根目錄的 Docker Compose；命令行參數與 Web UI 不相容，請勿將 `pdf2zh_next` 直接替換成 `gbabeldocui`。
+
 ### 透過命令行使用 PDFMathTranslate
 
 #### 基本用法

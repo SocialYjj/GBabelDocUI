@@ -1,12 +1,11 @@
 # Project information
 site_name: GBabelDocUI
-site_url: https://pdf2zh-next.com
-site_author: awwaawwa
-site_description: PDF scientific paper translation and bilingual comparison.
+site_author: SocialYjj
+site_description: Multi-user PDF translation Web UI based on pdf2zh-next and BabelDOC.
 
 # Repository
-repo_name: eaiu/GBabelDocUI
-repo_url: https://github.com/eaiu/GBabelDocUI
+repo_name: SocialYjj/GBabelDocUI
+repo_url: https://github.com/SocialYjj/GBabelDocUI
 edit_uri: edit/main/docs/
 
 # Configuration
@@ -74,7 +73,7 @@ plugins:
       minify_html: true
   - git-authors
 
-  # i18n language support en, zh, zh_TW, ja, ko, fr, de, es, ru, it, pt
+  # i18n language support en, zh, zh-TW, ja, ko, fr, de, es, ru, it, pt
   - i18n:
       docs_structure: folder
       reconfigure_material: true
@@ -123,7 +122,7 @@ plugins:
             SiliconFlow: 硅基流动
             For Translators: 文档翻译贡献指南
 
-        - locale: zh_TW
+        - locale: zh-TW
           name: 繁體中文
           build: true
           theme:
@@ -379,9 +378,7 @@ extra:
     deprecated: Deprecated
   social:
     - icon: fontawesome/brands/github
-       link: https://github.com/eaiu/GBabelDocUI
-    - icon: fontawesome/brands/python
-      link: https://pypi.org/project/pdf2zh-next/
+      link: https://github.com/SocialYjj/GBabelDocUI
 
 # Extensions
 markdown_extensions:
@@ -409,6 +406,9 @@ markdown_extensions:
 
 not_in_nav: |
   /tutorials/**/*.md
+  **/APIS.md
+  **/CODE_OF_CONDUCT.md
+  **/advanced/introduction.md
 
 
 # Page tree

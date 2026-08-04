@@ -1,6 +1,7 @@
 [**Opções avançadas**](./introduction.md) > **Opções avançadas** _(atual)_
 
----
+> [!NOTE]
+> Esta página é apenas uma referência às opções de linha de comando do runtime upstream pdf2zh-next. Ela não descreve a Web UI multiusuário do GBabelDocUI. Inicie o GBabelDocUI com gbabeldocui, abra /login.html e configure as opções de tradução na página de configurações.
 
 <h3 id="toc">Índice</h3>
 
@@ -17,7 +18,6 @@
 - [Autenticação e página de boas-vindas](#autenticação-e-página-de-boas-vindas)
 - [Suporte ao glossário](#suporte-ao-glossário)
 
----
 
 #### Argumentos da Linha de Comando
 
@@ -98,7 +98,6 @@ Na tabela a seguir, listamos todas as opções avançadas para referência:
 
 [⬆️ Voltar ao topo](#toc)
 
----
 
 #### Guia de configuração de limitação de taxa
 
@@ -156,7 +155,6 @@ pdf2zh example.pdf --qps 45 --pool-max-worker 45
 
 [⬆️ Voltar ao topo](#toc)
 
----
 
 #### Tradução parcial
 
@@ -195,7 +193,6 @@ Este comando irá traduzir a primeira página, a terceira página, as páginas 1
 
 [⬆️ Voltar ao topo](#toc)
 
----
 
 #### Especificar idiomas de origem e destino
 
@@ -207,7 +204,6 @@ pdf2zh_next example.pdf --lang-in en -lang-out ja
 
 [⬆️ Voltar ao topo](#toc)
 
----
 
 #### Traduzir com exceções
 
@@ -225,7 +221,6 @@ pdf2zh_next example.pdf --formular-font-pattern "(CM[^R]|MS.M|XY|MT|BL|RM|EU|LA|
 
 [⬆️ Voltar ao topo](#toc)
 
----
 
 #### Prompt personalizado
 
@@ -239,7 +234,6 @@ pdf2zh_next example.pdf --custom-system-prompt "/no_think You are a professional
 
 [⬆️ Voltar ao topo](#toc)
 
----
 
 #### Configuração personalizada
 
@@ -300,7 +294,6 @@ Por favor, não modifique os arquivos de configuração no diretório `default`.
 
 [⬆️ Voltar ao topo](#toc)
 
----
 
 #### Pular limpeza
 
@@ -321,7 +314,6 @@ PDF2ZH_SKIP_CLEAN=TRUE pdf2zh_next example.pdf
 > [!TIP]
 > Quando `--enhance-compatibility` está ativado, Pular limpeza é automaticamente ativado.
 
----
 
 #### Cache de tradução
 
@@ -333,7 +325,6 @@ pdf2zh_next example.pdf --ignore-cache
 
 [⬆️ Voltar ao topo](#toc)
 
----
 
 #### Implantação como serviços públicos
 
@@ -362,7 +353,6 @@ disable_config_auto_save = true
 
 [⬆️ Voltar ao topo](#toc)
 
----
 
 #### Autenticação e página de boas-vindas
 
@@ -411,7 +401,6 @@ welcome_page = "/path/to/welcome/html/file"
 
 [⬆️ Voltar ao topo](#toc)
 
----
 
 #### Suporte ao glossário
 

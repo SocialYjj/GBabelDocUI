@@ -2,6 +2,8 @@
 
 ---
 
+> **Nota sull'ambito:** Questa pagina è un riferimento per la [documentazione ufficiale dei servizi di traduzione di `pdf2zh-next`](https://github.com/PDFMathTranslate-next/PDFMathTranslate-next). Non documenta la Web UI di GBabelDocUI. Per la Web UI di GBabelDocUI, consulta [`USAGE_webui.md`](../getting-started/USAGE_webui.md) e le istruzioni Docker. Non sostituire `pdf2zh_next` con `gbabeldocui`: gli argomenti della riga di comando non sono compatibili.
+
 ### Visualizzazione dei servizi di traduzione disponibili tramite Riga di comando
 
 È possibile verificare i servizi di traduzione disponibili e il loro utilizzo stampando il messaggio di aiuto nella Riga di comando.

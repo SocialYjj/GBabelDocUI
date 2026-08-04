@@ -7,6 +7,9 @@ EXPOSE 7860
 
 ENV PYTHONUNBUFFERED=1
 
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:7860/api/auth/status', timeout=3); urllib.request.urlopen('http://127.0.0.1:7860/login.html', timeout=3)"
+
 # # Download all required fonts
 # ADD "https://github.com/satbyy/go-noto-universal/releases/download/v7.0/GoNotoKurrent-Regular.ttf" /app/
 # ADD "https://github.com/timelic/source-han-serif/releases/download/main/SourceHanSerifCN-Regular.ttf" /app/
@@ -29,6 +32,6 @@ RUN apt-get update && \
 COPY . .
 
 RUN uv pip install --system --no-cache --no-deps . && \
-    babeldoc --version && babeldoc --warmup && \
+    babeldoc --version && \
     pdf2zh --version
 CMD ["gbabeldocui"]

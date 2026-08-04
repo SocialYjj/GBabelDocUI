@@ -2,6 +2,8 @@
 
 ---
 
+> **Hinweis zum Geltungsbereich:** Diese Seite ist eine Referenz für die offizielle [Dokumentation der Übersetzungsdienste von `pdf2zh-next`](https://github.com/PDFMathTranslate-next/PDFMathTranslate-next). Sie beschreibt nicht die GBabelDocUI-Weboberfläche. Für die GBabelDocUI-Weboberfläche verwenden Sie [`USAGE_webui.md`](../getting-started/USAGE_webui.md) und die Docker-Anleitung. Ersetzen Sie `pdf2zh_next` nicht durch `gbabeldocui`, da die Kommandozeilenargumente nicht kompatibel sind.
+
 ### Verfügbare Übersetzungsdienste über die Kommandozeile anzeigen
 
 Sie können die verfügbaren Übersetzungsdienste und deren Verwendung bestätigen, indem Sie die Hilfemeldung in der Kommandozeile ausgeben.
@@ -10,7 +12,7 @@ Sie können die verfügbaren Übersetzungsdienste und deren Verwendung bestätig
 pdf2zh_next -h
 ```
 
-For more information, please refer to [Documentation of Translation Services](https://pdf2zh-next.com/advanced/translation_services.html).
+For more information, please refer to [Documentation of Translation Services](./Documentation-of-Translation-Services.md).
 
 ---
 
@@ -18,7 +20,7 @@ For more information, please refer to [Documentation of Translation Services](ht
 
 Am Ende der Hilfenachricht können Sie detaillierte Informationen zu den verschiedenen Übersetzungsdiensten einsehen.
 
-Weitere Informationen finden Sie in der [Dokumentation der Übersetzungsdienste](https://pdf2zh-next.com/advanced/translation_services.html).
+Weitere Informationen finden Sie in der [Dokumentation der Übersetzungsdienste](./Documentation-of-Translation-Services.md).
 
 
 ---
@@ -60,7 +62,7 @@ pdf2zh supports multiple translation engines. Each engine has different characte
 #### **Notes:**
 1. The free engines (`google`, `caiyun`, `nllb`, `offline`) may have usage limits. If you encounter issues, consider using a paid engine.
 2. The quality of the `offline` engine is poor and not recommended for production use.
-3. For the `nllb` and `offline` engines, you need to deploy the model locally. Refer to the [Offline Model Deployment Documentation](https://pdf2zh-next.com/advanced/offline_model.html) for details.
+3. For the `nllb` and `offline` engines, you need to deploy the model locally. Refer to the [Offline Model Deployment Documentation](https://github.com/PDFMathTranslate-next/PDFMathTranslate-next/tree/main/docs) for details.
 
 ---
 
@@ -104,7 +106,7 @@ pdf2zh unterstützt mehrere Übersetzungs-Engines. Jede Engine hat unterschiedli
 #### **Hinweise:**
 1. Die kostenlosen Engines (`google`, `caiyun`, `nllb`, `offline`) können Nutzungsbeschränkungen haben. Wenn Sie auf Probleme stoßen, ziehen Sie in Betracht, eine bezahlte Engine zu verwenden.
 2. Die Qualität der `offline`-Engine ist schlecht und wird nicht für den Produktionseinsatz empfohlen.
-3. Für die `nllb`- und `offline`-Engines müssen Sie das Modell lokal bereitstellen. Weitere Details finden Sie in der [Dokumentation zur Offline-Modellbereitstellung](https://pdf2zh-next.com/advanced/offline_model.html).
+3. Für die `nllb`- und `offline`-Engines müssen Sie das Modell lokal bereitstellen. Weitere Details finden Sie in der [Dokumentation zur Offline-Modellbereitstellung](https://github.com/PDFMathTranslate-next/PDFMathTranslate-next/tree/main/docs).
 
 - **English (en)**: The primary language of the project, with the most complete documentation and support.
 - **Chinese (zh)**: The secondary language, with extensive translation coverage.

@@ -2,6 +2,8 @@
 
 ---
 
+> **범위 안내:** 이 페이지는 공식 [`pdf2zh-next` uv 설치](https://github.com/PDFMathTranslate-next/PDFMathTranslate-next)의 참고 자료입니다. GBabelDocUI Web UI를 설명하는 문서가 아닙니다. GBabelDocUI Web UI는 [`USAGE_webui.md`](./USAGE_webui.md)와 Docker 안내를 참조하세요. `pdf2zh_next`를 `gbabeldocui`로 바꾸지 마세요. 명령줄 인수가 호환되지 않습니다.
+
 ### uv 를 통해 PDFMathTranslate 설치하기
 
 #### uv 란 무엇인가요? 어떻게 설치하나요?

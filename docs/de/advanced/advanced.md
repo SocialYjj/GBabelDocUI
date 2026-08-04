@@ -1,6 +1,7 @@
 [**Erweiterte Optionen**](./introduction.md) > **Erweiterte Optionen** _(aktuell)_
 
----
+> [!NOTE]
+> Diese Seite ist nur eine Referenz für die Kommandozeilenoptionen der Upstream-Laufzeit pdf2zh-next. Sie beschreibt nicht die Mehrbenutzer-Weboberfläche von GBabelDocUI. Starten Sie GBabelDocUI mit gbabeldocui, öffnen Sie /login.html und konfigurieren Sie die Übersetzungsoptionen auf der Einstellungsseite.
 
 <h3 id="inhaltsverzeichnis">Inhaltsverzeichnis</h3>
 
@@ -17,7 +18,6 @@
 - [#### Authentifizierung und Willkommensseite](#authentifizierung-und-willkommensseite)
 - [#### Glossar-Unterstützung](#glossar-unterstützung)
 
----
 
 #### Kommandozeilenargumente
 
@@ -98,7 +98,6 @@ In der folgenden Tabelle listen wir alle erweiterten Optionen zur Referenz auf:
 
 [⬆️ Zurück zum Anfang](#toc)
 
----
 
 #### Ratenbegrenzungskonfigurationsleitfaden
 
@@ -156,7 +155,6 @@ pdf2zh example.pdf --qps 45 --pool-max-worker 45
 
 [⬆️ Zurück zum Anfang](#toc)
 
----
 
 #### Teilweise Übersetzung
 
@@ -195,7 +193,6 @@ Dieser Befehl übersetzt die erste Seite, die dritte Seite, die Seiten 10-20 und
 
 [⬆️ Zurück zum Anfang](#toc)
 
----
 
 #### Quell- und Zielsprachen angeben
 
@@ -207,7 +204,6 @@ pdf2zh_next example.pdf --lang-in en -lang-out ja
 
 [⬆️ Zurück zum Anfang](#toc)
 
----
 
 #### Übersetzen mit Ausnahmen
 
@@ -225,7 +221,6 @@ pdf2zh_next example.pdf --formular-font-pattern "(CM[^R]|MS.M|XY|MT|BL|RM|EU|LA|
 
 [⬆️ Zurück zum Anfang](#toc)
 
----
 
 #### Benutzerdefinierte Eingabeaufforderung
 
@@ -239,7 +234,6 @@ pdf2zh_next example.pdf --custom-system-prompt "/no_think You are a professional
 
 [⬆️ Zurück zum Anfang](#toc)
 
----
 
 #### Benutzerdefinierte Konfiguration
 
@@ -300,7 +294,6 @@ Es wird dringend empfohlen, auf den Inhalt dieser Konfigurationsdatei zu verweis
 
 [⬆️ Zurück zum Anfang](#toc)
 
----
 
 #### Überspringe Bereinigung
 
@@ -321,7 +314,6 @@ PDF2ZH_SKIP_CLEAN=TRUE pdf2zh_next example.pdf
 > [!TIP]
 > Wenn `--enhance-compatibility` aktiviert ist, wird die Bereinigung automatisch übersprungen.
 
----
 
 #### Übersetzungscache
 
@@ -333,7 +325,6 @@ pdf2zh_next example.pdf --ignore-cache
 
 [⬆️ Zurück zum Anfang](#toc)
 
----
 
 #### Bereitstellung als öffentlicher Dienst
 
@@ -362,7 +353,6 @@ disable_config_auto_save = true
 
 [⬆️ Zurück zum Anfang](#toc)
 
----
 
 #### Authentifizierung und Willkommensseite
 
@@ -411,7 +401,6 @@ welcome_page = "/path/to/welcome/html/file"
 
 [⬆️ Zurück zum Anfang](#toc)
 
----
 
 #### Glossar-Unterstützung
 

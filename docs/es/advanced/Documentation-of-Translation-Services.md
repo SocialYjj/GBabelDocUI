@@ -2,6 +2,8 @@
 
 ---
 
+> **Nota sobre el alcance:** Esta página es una referencia para la [documentación oficial de servicios de traducción de `pdf2zh-next`](https://github.com/PDFMathTranslate-next/PDFMathTranslate-next). No documenta la Web UI de GBabelDocUI. Para la Web UI de GBabelDocUI, consulta [`USAGE_webui.md`](../getting-started/USAGE_webui.md) y las instrucciones de Docker. No sustituyas `pdf2zh_next` por `gbabeldocui`: sus argumentos de línea de comandos no son compatibles.
+
 ### Visualización de servicios de traducción disponibles mediante la Línea de comandos
 
 Puedes confirmar los servicios de traducción disponibles y su uso imprimiendo el mensaje de ayuda en la línea de comandos.
@@ -49,7 +51,7 @@ The following table lists the environment variables required for each translatio
 | Tencent Translate | `TENCENT_SECRET_ID`<br>`TENCENT_SECRET_KEY` | Tencent Cloud Secret ID and Key |
 | ChatGPT | `OPENAI_API_KEY` | OpenAI API Key |
 
-For more details, please refer to the [Documentation of Translation Services](https://pdf2zh-next.com/advanced/TRANSLATION_SERVICE.html).
+For more details, please refer to the [Documentation of Translation Services](./Documentation-of-Translation-Services.md).
 
 ---
 
@@ -96,7 +98,7 @@ La siguiente tabla lista las variables de entorno requeridas para cada motor de 
 | Tencent Translate | `TENCENT_SECRET_ID`<br>`TENCENT_SECRET_KEY` | ID secreto y clave secreta de Tencent Cloud |
 | ChatGPT | `OPENAI_API_KEY` | Clave de API de OpenAI |
 
-Para más detalles, por favor consulta la [Documentación de servicios de traducción](https://pdf2zh-next.com/advanced/TRANSLATION_SERVICE.html).
+Para más detalles, por favor consulta la [Documentación de servicios de traducción](./Documentation-of-Translation-Services.md).
 
 
 ---
@@ -135,7 +137,7 @@ The following table lists the environment variables required for each translatio
 | Tencent Translate | `TENCENT_SECRET_ID`<br>`TENCENT_SECRET_KEY` | Tencent Cloud Secret ID and Key |
 | ChatGPT | `OPENAI_API_KEY` | OpenAI API Key |
 
-For more details, please refer to the [Documentation of Translation Services](https://pdf2zh-next.com/advanced/TRANSLATION_SERVICE.html).
+For more details, please refer to the [Documentation of Translation Services](./Documentation-of-Translation-Services.md).
 
 ---
 

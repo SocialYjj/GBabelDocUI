@@ -2,7 +2,7 @@
 
 ---
 
-### Usar PDFMathTranslate a través de Webui
+### Usar GBabelDocUI a través de Webui
 
 #### Cómo abrir la página de WebUI:
 
@@ -15,7 +15,7 @@ Existen varios métodos para abrir la interfaz de WebUI. Si estás usando **Wind
 3. Comienza a usar en el navegador:
 
     ```bash
-    pdf2zh_next --gui
+    gbabeldocui
     ```
 
 4. Si tu navegador no se ha iniciado automáticamente, ve a
@@ -26,23 +26,22 @@ Existen varios métodos para abrir la interfaz de WebUI. Si estás usando **Wind
 
     Arrastra el archivo PDF a la ventana y haz clic en `Translate`.
 
-5. Si despliegas PDFMathTranslate con docker, y estás usando ollama como backend LLM de PDFMathTranslate, debes llenar "Ollama host" con
+5. Si despliegas GBabelDocUI con docker, y estás usando ollama como backend LLM de GBabelDocUI, debes llenar "Ollama host" con
 
    ```bash
    http://host.docker.internal:11434
    ```
 
+> **Nota de seguridad:** Ollama es un servicio del lado del servidor y solo está disponible para administradores. El endpoint privado `http://host.docker.internal:11434` se rechaza de forma predeterminada. Solo en un despliegue de confianza, establece `GBABELDOCUI_ALLOW_PRIVATE_ENDPOINTS=true` en el entorno del contenedor. Esto relaja la protección contra SSRF; no lo habilites si usuarios no confiables pueden acceder a GBabelDocUI.
+
 <!-- <img src="./../../images/gui.gif" width="500"/> -->
 <img src='./../../images/gui.gif' width="500"/>
+### Configure the translation
 
-### Variables de entorno
+Use the GBabelDocUI settings page to choose the translation service, source and target languages, PDF outputs, page range and advanced options. The selected settings are saved per user and are snapshotted when a task starts.
 
-Puedes configurar los idiomas de origen y destino utilizando variables de entorno:
-
-- `PDF2ZH_LANG_FROM`: Establece el idioma de origen. Por defecto es "English".
-- `PDF2ZH_LANG_TO`: Establece el idioma de destino. Por defecto es "Simplified Chinese".
-
-## Vista previa
+When running the Docker container, keep `./data` mounted to `/app/data`. The default Compose deployment listens on `127.0.0.1:7860`; use an HTTPS reverse proxy for public access. The translation executor is designed for one application process and one shared data directory.
+## Preview## Vista previa
 
 <img src="./../../images/before.png" width="500"/>
 <img src="./../../images/after.png" width="500"/>

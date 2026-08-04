@@ -1,6 +1,7 @@
 [**Opciones avanzadas**](./introduction.md) > **Opciones avanzadas** _(actual)_
 
----
+> [!NOTE]
+> Esta página es solo una referencia de la interfaz de línea de comandos del runtime upstream pdf2zh-next. No describe la interfaz Web multiusuario de GBabelDocUI. Inicie GBabelDocUI con gbabeldocui, abra /login.html y configure las opciones de traducción en la página de configuración.
 
 <h3 id="toc">Tabla de Contenidos</h3>
 
@@ -17,7 +18,6 @@
 - [Autenticación y página de bienvenida](#autenticación-y-página-de-bienvenida)
 - [Glosario de soporte](#glosario-de-soporte)
 
----
 
 #### Argumentos de línea de comandos
 
@@ -98,7 +98,6 @@ En la siguiente tabla, enumeramos todas las opciones avanzadas para referencia:
 
 [⬆️ Volver al inicio](#toc)
 
----
 
 #### Guía de configuración de límites de tasa
 
@@ -156,7 +155,6 @@ pdf2zh example.pdf --qps 45 --pool-max-worker 45
 
 [⬆️ Volver al inicio](#toc)
 
----
 
 #### Traducción parcial
 
@@ -195,7 +193,6 @@ Este comando traducirá la primera página, la tercera página, las páginas 10-
 
 [⬆️ Volver al inicio](#toc)
 
----
 
 #### Especificar idiomas de origen y destino
 
@@ -207,7 +204,6 @@ pdf2zh_next example.pdf --lang-in en -lang-out ja
 
 [⬆️ Volver al inicio](#toc)
 
----
 
 #### Traducir con excepciones
 
@@ -225,7 +221,6 @@ pdf2zh_next example.pdf --formular-font-pattern "(CM[^R]|MS.M|XY|MT|BL|RM|EU|LA|
 
 [⬆️ Volver al inicio](#toc)
 
----
 
 #### Custom prompt
 
@@ -239,7 +234,6 @@ pdf2zh_next example.pdf --custom-system-prompt "/no_think You are a professional
 
 [⬆️ Volver al inicio](#toc)
 
----
 
 #### Configuración personalizada
 
@@ -300,7 +294,6 @@ Se recomienda encarecidamente consultar el contenido de este archivo de configur
 
 [⬆️ Volver al inicio](#toc)
 
----
 
 #### Omitir limpieza
 
@@ -321,7 +314,6 @@ PDF2ZH_SKIP_CLEAN=TRUE pdf2zh_next example.pdf
 > [!TIP]
 > Cuando `--enhance-compatibility` está habilitado, Omitir limpieza se activa automáticamente.
 
----
 
 #### Caché de traducción
 
@@ -333,7 +325,6 @@ pdf2zh_next example.pdf --ignore-cache
 
 [⬆️ Volver al inicio](#toc)
 
----
 
 #### Despliegue como servicios públicos
 
@@ -362,7 +353,6 @@ disable_config_auto_save = true
 
 [⬆️ Volver al inicio](#toc)
 
----
 
 #### Autenticación y página de bienvenida
 
@@ -411,7 +401,6 @@ welcome_page = "/path/to/welcome/html/file"
 
 [⬆️ Volver al inicio](#toc)
 
----
 
 #### Glosario de soporte
 

@@ -15,7 +15,13 @@ function isAuthenticated() {
  */
 function getCurrentUser() {
     const userInfo = localStorage.getItem('user_info');
-    return userInfo ? JSON.parse(userInfo) : null;
+    if (!userInfo) return null;
+    try {
+        return JSON.parse(userInfo);
+    } catch (error) {
+        localStorage.removeItem('user_info');
+        return null;
+    }
 }
 
 /**
@@ -178,8 +184,16 @@ function formatFileSize(bytes) {
  * Format date
  */
 function formatDate(dateString) {
-    const date = new Date(dateString);
-    return date.toLocaleString();
+    if (!dateString) return '';
+
+    // The API keeps legacy timestamps as naive UTC ISO strings. Tell the
+    // browser to interpret those values as UTC before converting to local time.
+    const normalizedDateString = typeof dateString === 'string'
+        && !/(?:Z|[+-]\d{2}:?\d{2})$/i.test(dateString)
+        ? `${dateString}Z`
+        : dateString;
+    const date = new Date(normalizedDateString);
+    return Number.isNaN(date.getTime()) ? String(dateString) : date.toLocaleString();
 }
 
 /**

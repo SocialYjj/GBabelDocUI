@@ -2,6 +2,8 @@
 
 ---
 
+> **범위 안내:** 이 페이지는 공식 [`pdf2zh-next` 번역 서비스 문서](https://github.com/PDFMathTranslate-next/PDFMathTranslate-next)의 참고 자료입니다. GBabelDocUI Web UI를 설명하는 문서가 아닙니다. GBabelDocUI Web UI는 [`USAGE_webui.md`](../getting-started/USAGE_webui.md)와 Docker 안내를 참조하세요. `pdf2zh_next`를 `gbabeldocui`로 바꾸지 마세요. 명령줄 인수가 호환되지 않습니다.
+
 ### 명령줄에서 사용 가능한 번역 서비스 확인하기
 
 명령줄에서 도움말 메시지를 출력하여 사용 가능한 번역 서비스와 그 사용법을 확인할 수 있습니다.
@@ -53,7 +55,7 @@ pdf2zh supports multiple translation engines, including:
 2. **Select Model**: Choose the appropriate model for your needs.
 3. **Adjust Parameters**: Fine-tune parameters like temperature and max tokens.
 
-For detailed configuration instructions, refer to the [Usage](USAGE.md) documentation.
+For detailed configuration instructions, refer to the [Usage](../getting-started/USAGE_commandline.md) documentation.
 
 ---
 
@@ -86,7 +88,7 @@ pdf2zh 는 다음과 같은 여러 번역 엔진을 지원합니다:
 2. **모델 선택**: 필요에 맞는 적절한 모델을 선택합니다.
 3. **매개변수 조정**: temperature 및 max tokens 와 같은 매개변수를 미세 조정합니다.
 
-자세한 구성 지침은 [사용법](USAGE.md) 문서를 참조하세요.
+자세한 구성 지침은 [사용법](../getting-started/USAGE_commandline.md) 문서를 참조하세요.
 
 - **Google Translate**: `google` (Free)
 - **DeepL**: `deepl` (Free/Paid)

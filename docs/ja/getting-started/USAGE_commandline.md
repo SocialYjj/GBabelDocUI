@@ -2,6 +2,8 @@
 
 ---
 
+> **対象範囲に関する注意:** このページは公式 [`pdf2zh-next` コマンドラインインターフェース](https://github.com/PDFMathTranslate-next/PDFMathTranslate-next) の参考資料です。GBabelDocUI Web UI の説明ではありません。GBabelDocUI Web UI については [`USAGE_webui.md`](./USAGE_webui.md) と Docker の手順を参照してください。`pdf2zh_next` を `gbabeldocui` に置き換えないでください。コマンドライン引数には互換性がありません。
+
 ### コマンドラインで PDFMathTranslate を使用する
 
 #### 基本的な使い方

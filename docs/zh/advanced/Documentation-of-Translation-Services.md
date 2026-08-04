@@ -2,6 +2,8 @@
 
 ---
 
+> **范围说明：** 本页是官方 [`pdf2zh-next` 翻译服务文档](https://github.com/PDFMathTranslate-next/PDFMathTranslate-next) 的参考文档，不是 GBabelDocUI Web UI 文档。GBabelDocUI Web UI 请参阅 [`USAGE_webui.md`](../getting-started/USAGE_webui.md) 和 Docker 部署说明。不要把 `pdf2zh_next` 替换为 `gbabeldocui`，因为两者的命令行参数不兼容。
+
 ### 通过命令行查看可用的翻译服务
 
 您可以通过在命令行中打印帮助信息来确认可用的翻译服务及其使用方法。
@@ -50,7 +52,7 @@ Translation Services:
   ollama                Ollama API
   groq                  Groq API
 
-For more information on translation services, visit: https://pdf2zh-next.com/advanced/translation_services.html
+For more information on translation services, visit: ./Documentation-of-Translation-Services.md
 ```
 
 ---
@@ -100,12 +102,12 @@ For more information on translation services, visit: https://pdf2zh-next.com/adv
   ollama                Ollama API
   groq                  Groq API
 
-有关翻译服务的更多信息，请访问：https://pdf2zh-next.com/advanced/translation_services.html
+有关翻译服务的更多信息，请访问：./Documentation-of-Translation-Services.md
 
 
 ---
 
-This project supports multiple translation engines. For detailed information on each engine, please refer to the [Documentation of Translation Services](https://pdf2zh-next.com/advanced/translation_services.html).
+This project supports multiple translation engines. For detailed information on each engine, please refer to the [Documentation of Translation Services](./Documentation-of-Translation-Services.md).
 
 The following table lists the supported engines and their status:
 

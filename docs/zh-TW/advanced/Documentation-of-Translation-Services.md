@@ -2,6 +2,8 @@
 
 ---
 
+> **說明：** 本頁沿用官方 `pdf2zh-next` 命令行翻譯服務參考，不代表 GBabelDocUI Web UI 的完整服務設定表單。GBabelDocUI 的主入口是 `gbabeldocui`、`/login.html` 或根目錄的 Docker Compose；請不要把 `pdf2zh_next` 參數直接替換成 `gbabeldocui`。
+
 ### 通過命令行查看可用的翻譯服務
 
 您可以通過在命令行中打印幫助訊息來確認可用的翻譯服務及其使用方法。
@@ -320,7 +322,7 @@ Currently supported Tier 3 translation engines include:
 | Aliyun | 是 | 高 |
 | SiliconFlow | 是 | 高 |
 
-You can view the current list of supported engines in [Supported Languages](https://pdf2zh-next.com/getting-started/SUPPORTED_LANGUAGES.html).
+You can view the current list of supported engines in [Supported Languages](../supported_languages.md).
 
 !!! warning "Community Support"
     Tier 2 translation engines are maintained by the community. If you encounter issues, please check existing GitHub issues or consider contributing a fix.
@@ -333,7 +335,7 @@ You can view the current list of supported engines in [Supported Languages](http
 當這些引擎遇到問題時，項目維護者不會直接提供修復。相反，他們會將相關問題標記為 `help wanted`，並歡迎貢獻者提交拉取請求來幫助解決這些問題。
 
 所有被程序支持但未明確列在第一層級下的引擎都被視為第二層級翻譯引擎。
-您可以在 [支持的語言](https://pdf2zh-next.com/getting-started/SUPPORTED_LANGUAGES.html) 中查看當前支持的引擎列表。
+您可以在 [支持的語言](../supported_languages.md) 中查看當前支持的引擎列表。
 
 !!! warning "社區支持"
     第二層級翻譯引擎由社區維護。如果您遇到問題，請檢查現有的 GitHub 問題或考慮貢獻修復。

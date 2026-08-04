@@ -1,25 +1,25 @@
 [**高级选项**](./introduction.md) > **高级选项** _(当前)_
 
----
+> [!NOTE]
+> 本页仅作为上游 pdf2zh-next 命令行运行时的参数参考，不是 GBabelDocUI 多用户 Web UI 的使用说明。请使用 gbabeldocui 启动 GBabelDocUI，打开 /login.html，并在设置页面配置翻译选项。
 
-<h3 id="目录">目录</h3>
+<h3 id="toc">目录</h3>
 
-- [命令行参数](#命令行参数)
-- [限流配置指南](#限流配置指南)
-- [部分翻译](#部分翻译)
-- [指定源语言和目标语言](#指定源语言和目标语言)
-- [使用例外进行翻译](#使用例外进行翻译)
-- [自定义提示词](#自定义提示词)
-- [自定义配置](#自定义配置)
-- [跳过清理](#跳过清理)
-- [翻译缓存](#翻译缓存)
-- [部署为公共服务](#部署为公共服务)
-- [认证与欢迎页面](#认证与欢迎页面)
-- [术语表支持](#术语表支持)
+- [命令行参数](#command-line-args)
+- [限流配置指南](#rate-limiting-configuration-guide)
+- [部分翻译](#partial-translation)
+- [指定源语言和目标语言](#specify-source-and-target-languages)
+- [使用例外进行翻译](#translate-with-exceptions)
+- [自定义提示词](#custom-prompt)
+- [自定义配置](#custom-configuration)
+- [跳过清理](#skip-clean)
+- [翻译缓存](#translation-cache)
+- [部署为公共服务](#deployment-as-a-public-service)
+- [认证与欢迎页面](#authentication-and-welcome-page)
+- [术语表支持](#glossary-support)
 
----
 
-#### 命令行参数
+<h4 id="command-line-args">命令行参数</h4>
 
 在命令行中执行翻译命令，在当前工作目录中生成翻译后的文档 `example-mono.pdf` 和双语文档 `example-dual.pdf`。使用 Google 作为默认翻译服务。更多支持的翻译服务可以在 [这里](https://github.com/PDFMathTranslate/PDFMathTranslate-next/blob/main/docs/ADVANCED.md#services) 找到。
 
@@ -33,7 +33,7 @@
 | ------------------------------- | -------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
 | `input-files`                   | 要处理的输入 PDF 文件                                                              | `pdf2zh_next example.pdf`                                                                                             |
 | `--output`                      | 输出文件的目录                                                              | `pdf2zh_next example.pdf --output /outputpath`                                                                        |
-| `--<Services>`                  | 使用 [**特定服务**](./翻译服务文档.md) 进行翻译 | `pdf2zh_next example.pdf --openai`<br>`pdf2zh_next example.pdf --deepseek`                                            |
+| `--<Services>`                  | 使用 [**特定服务**](./Documentation-of-Translation-Services.md) 进行翻译 | `pdf2zh_next example.pdf --openai`<br>`pdf2zh_next example.pdf --deepseek`                                            |
 | `--help`, `-h`                  | 显示帮助信息并退出                                                              | `pdf2zh_next -h`                                                                                                      |
 | `--config-file`                 | 配置文件路径                                                          | `pdf2zh_next --config-file /path/to/config/config.toml`                                                               |
 | `--report-interval`             | 进度报告间隔（秒）                                                     | `pdf2zh_next example.pdf --report-interval 5`                                                                         |
@@ -98,9 +98,8 @@
 
 [⬆️ 返回顶部](#toc)
 
----
 
-#### 限流配置指南
+<h4 id="rate-limiting-configuration-guide">限流配置指南</h4>
 
 在使用翻译服务时，适当的限流配置对于避免 API 错误和优化性能至关重要。本指南解释了如何根据不同的上游服务限制来配置 `--qps` 和 `--pool-max-worker` 参数。
 
@@ -156,9 +155,8 @@ pdf2zh example.pdf --qps 45 --pool-max-worker 45
 
 [⬆️ 返回顶部](#toc)
 
----
 
-#### 部分翻译
+<h4 id="partial-translation">部分翻译</h4>
 
 使用 `--pages` 参数来翻译文档的一部分。
 
@@ -193,11 +191,10 @@ pdf2zh_next example.pdf --pages "1,3,10-20,25-"
 
 此命令将翻译第一页、第三页、第 10 到 20 页，以及从第 25 页开始的所有后续页面。
 
-[⬆️ 回到顶部](#目录)
+[⬆️ 回到顶部](#toc)
 
----
 
-#### 指定源语言和目标语言
+<h4 id="specify-source-and-target-languages">指定源语言和目标语言</h4>
 
 参见 [Google Languages Codes](https://developers.google.com/admin-sdk/directory/v1/languages)、[DeepL Languages Codes](https://developers.deepl.com/docs/resources/supported-languages)
 
@@ -207,9 +204,8 @@ pdf2zh_next example.pdf --lang-in en -lang-out ja
 
 [⬆️ 返回顶部](#toc)
 
----
 
-#### 使用例外进行翻译
+<h4 id="translate-with-exceptions">使用例外进行翻译</h4>
 
 使用正则表达式指定需要保留的公式字体和字符：
 
@@ -225,9 +221,8 @@ pdf2zh_next example.pdf --formular-font-pattern "(CM[^R]|MS.M|XY|MT|BL|RM|EU|LA|
 
 [⬆️ 返回顶部](#toc)
 
----
 
-#### 自定义提示词
+<h4 id="custom-prompt">自定义提示词</h4>
 
 <!-- Note: System prompt is currently not supported. See [this change](https://github.com/PDFMathTranslate/PDFMathTranslate-next/pull/637). -->
 
@@ -239,9 +234,8 @@ pdf2zh_next example.pdf --custom-system-prompt "/no_think You are a professional
 
 [⬆️ 返回顶部](#toc)
 
----
 
-#### 自定义配置
+<h4 id="custom-configuration">自定义配置</h4>
 
 有多种方式可以修改和导入配置文件。
 
@@ -256,7 +250,7 @@ pdf2zh_next example.pdf --custom-system-prompt "/no_think You are a professional
 
 - 通过 **命令行参数** 修改配置
 
-对于大多数情况，您可以直接通过命令行参数传递所需的设置。更多信息请参考 [命令行参数](#命令行参数)。
+对于大多数情况，您可以直接通过命令行参数传递所需的设置。更多信息请参考 [命令行参数](#command-line-args)。
 
 例如，如果您想要启用 GUI 窗口，可以使用以下命令：
 
@@ -300,9 +294,8 @@ pdf2zh_next --config-file '/path/config.toml'
 
 [⬆️ 返回顶部](#toc)
 
----
 
-#### 跳过清理
+<h4 id="skip-clean">跳过清理</h4>
 
 当此参数设置为 True 时，将跳过 PDF 清理步骤，这可以提高兼容性并避免一些字体处理问题。
 
@@ -321,9 +314,8 @@ PDF2ZH_SKIP_CLEAN=TRUE pdf2zh_next example.pdf
 > [!TIP]
 > 当启用 `--enhance-compatibility` 时，跳过清理会自动启用。
 
----
 
-#### 翻译缓存
+<h4 id="translation-cache">翻译缓存</h4>
 
 PDFMathTranslate 会缓存已翻译的文本，以提高速度并避免对相同内容进行不必要的 API 调用。您可以使用 `--ignore-cache` 选项来忽略翻译缓存并强制重新翻译。
 
@@ -333,9 +325,8 @@ pdf2zh_next example.pdf --ignore-cache
 
 [⬆️ 返回顶部](#toc)
 
----
 
-#### 部署为公共服务
+<h4 id="deployment-as-a-public-service">部署为公共服务</h4>
 
 当在公共服务上部署 pdf2zh GUI 时，您应按照以下说明修改配置文件。
 
@@ -362,9 +353,8 @@ disable_config_auto_save = true
 
 [⬆️ 返回顶部](#toc)
 
----
 
-#### 认证与欢迎页面
+<h4 id="authentication-and-welcome-page">认证与欢迎页面</h4>
 
 当使用认证与欢迎页面来指定哪些用户可以使用 Web UI 并自定义登录页面时：
 
@@ -411,9 +401,8 @@ welcome_page = "/path/to/welcome/html/file"
 
 [⬆️ 返回顶部](#toc)
 
----
 
-#### 术语表支持
+<h4 id="glossary-support">术语表支持</h4>
 
 PDFMathTranslate 支持术语表功能。术语表文件应为 `csv` 格式。
 文件中包含三列。以下是一个示例术语表文件：
@@ -436,7 +425,7 @@ pdf2zh_next example.pdf --glossaries "glossary1.csv,glossary2.csv,glossary3.csv"
 
 您现在可以上传自己的术语表文件了。上传文件后，您可以通过点击文件名来查看它们，内容会显示在下方。
 
-[⬆️ 回到顶部](#目录)
+[⬆️ 回到顶部](#toc)
 
 <div align="right"> 
 <h6><small>本页面的部分内容由 GPT 翻译，可能包含错误。</small></h6>

@@ -2,6 +2,8 @@
 
 ---
 
+> **Nota de escopo:** Esta página é uma referência para a [interface oficial de linha de comando do `pdf2zh-next`](https://github.com/PDFMathTranslate-next/PDFMathTranslate-next). Ela não documenta a Web UI do GBabelDocUI. Para a Web UI do GBabelDocUI, consulte [`USAGE_webui.md`](./USAGE_webui.md) e as instruções do Docker. Não substitua `pdf2zh_next` por `gbabeldocui`: os argumentos de linha de comando não são compatíveis.
+
 ### Usar PDFMathTranslate via linha de comando
 
 #### Uso Básico

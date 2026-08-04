@@ -2,6 +2,8 @@
 
 ---
 
+> **說明：** 本頁是官方 `pdf2zh-next` Windows EXE 參考，不是 GBabelDocUI 主 Web UI 的部署方式。GBabelDocUI 的主入口是 `gbabeldocui`、`/login.html` 或根目錄的 Docker Compose；請勿將 EXE 命令行參數套用到 Web UI。
+
 ### 通過 .exe 文件安裝 PDFMathTranslate
 
 ***步驟 1*** | 從 [release page](https://github.com/PDFMathTranslate/PDFMathTranslate-next/releases) 下載 `pdf2zh-<version>-with-assets-win64.zip`。

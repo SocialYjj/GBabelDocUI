@@ -2,6 +2,8 @@
 
 ---
 
+> **說明：** 本頁介紹官方 `pdf2zh-next` 的 `uv` 安裝方式，僅作為命令行執行時參考，不是 GBabelDocUI 主 Web UI 的安裝方式。GBabelDocUI 的主入口是 `gbabeldocui`、`/login.html` 或根目錄的 Docker Compose；兩者參數不相容。
+
 ### 透過 uv 安裝 PDFMathTranslate
 
 #### 什麼是 uv？如何安裝它？

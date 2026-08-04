@@ -36,8 +36,7 @@
                         <div class="card">
                             <div class="card-header">
                                 <h2 class="card-title" data-i18n="upload.title">Upload PDF</h2>
-                                <p class="card-subtitle" data-i18n="upload.subtitle">Upload a file or enter a URL to
-                                    translate</p>
+                                <p class="card-subtitle" data-i18n="upload.subtitle">Upload a PDF file to translate</p>
                             </div>
 
                             <div class="card-body">
@@ -49,17 +48,6 @@
                                     <p class="upload-text" data-i18n="upload.drag">Drag and drop your PDF here</p>
                                     <p class="upload-hint" data-i18n="upload.browse">or click to browse</p>
                                     <input type="file" id="file-input" accept=".pdf" style="display: none;">
-                                </div>
-
-                                <div class="text-center mt-md mb-md">
-                                    <span class="text-muted" data-i18n="upload.or">— OR —</span>
-                                </div>
-
-                                <!-- URL Input -->
-                                <div class="form-group">
-                                    <label class="form-label">PDF URL</label>
-                                    <input type="url" class="form-input" id="url-input"
-                                        placeholder="https://example.com/document.pdf">
                                 </div>
 
                                 <!-- Page Selection -->
@@ -165,6 +153,37 @@
         let currentFile = null;
         let currentTaskId = null;
         let progressInterval = null;
+        let pageSelectionReady = false;
+        let translationStartInProgress = false;
+
+        function showActiveTaskProgress() {
+            const progressFill = document.getElementById('progress-fill');
+            const progressText = document.getElementById('progress-text');
+            const progressDetail = document.getElementById('progress-detail');
+            progressFill.style.width = '0%';
+            progressText.textContent = 'Processing...';
+            progressDetail.textContent = '';
+            document.getElementById('progress-card').style.display = 'block';
+            document.getElementById('result-card').style.display = 'none';
+        }
+
+        async function loadSavedPageSelection() {
+            try {
+                const response = await api.getSettings();
+                const settings = response.settings || {};
+                const savedPageRange = ['all', 'first', 'first5', 'custom'].includes(settings.page_range)
+                    ? settings.page_range
+                    : 'all';
+                const pageRangeSelect = document.getElementById('page-range-select');
+                pageRangeSelect.value = savedPageRange;
+                document.getElementById('custom-pages-input').value = typeof settings.custom_pages === 'string'
+                    ? settings.custom_pages
+                    : '';
+                pageRangeSelect.dispatchEvent(new Event('change'));
+            } catch (error) {
+                console.warn('Unable to load saved page selection:', error);
+            }
+        }
 
         // Page range selection
         document.getElementById('page-range-select').addEventListener('change', (e) => {
@@ -192,8 +211,13 @@
             uploadZone.classList.remove('drag-over');
 
             const files = e.dataTransfer.files;
-            if (files.length > 0 && files[0].type === 'application/pdf') {
-                handleFileSelect(files[0]);
+            const droppedFile = files[0];
+            const isPdf = droppedFile && (
+                droppedFile.type === 'application/pdf'
+                || droppedFile.name.toLowerCase().endsWith('.pdf')
+            );
+            if (isPdf) {
+                handleFileSelect(droppedFile);
             } else {
                 showAlert('Please drop a PDF file', 'error');
             }
@@ -207,44 +231,33 @@
 
         function handleFileSelect(file) {
             currentFile = file;
-            document.getElementById('translate-btn').disabled = false;
+            document.getElementById('translate-btn').disabled = !pageSelectionReady;
             uploadZone.querySelector('.upload-text').textContent = file.name;
             uploadZone.querySelector('.upload-hint').textContent = `${formatFileSize(file.size)} - Click to change`;
         }
 
-        // URL input
-        document.getElementById('url-input').addEventListener('input', (e) => {
-            const hasUrl = e.target.value.trim().length > 0;
-            document.getElementById('translate-btn').disabled = !hasUrl && !currentFile;
-            if (hasUrl) {
-                currentFile = null;
-                fileInput.value = '';
-            }
-        });
-
         // Translate button
         document.getElementById('translate-btn').addEventListener('click', async () => {
-            const urlInput = document.getElementById('url-input').value.trim();
+            if (translationStartInProgress) {
+                return;
+            }
+            translationStartInProgress = true;
+            document.getElementById('translate-btn').disabled = true;
             const pageRange = document.getElementById('page-range-select').value;
             const customPages = document.getElementById('custom-pages-input').value.trim();
+            let uploadedFileId = null;
 
             try {
                 showLoading();
 
-                let fileId;
-
-                if (currentFile) {
-                    // Upload file
-                    const uploadResponse = await api.uploadFile(currentFile, (progress) => {
-                        console.log(`Upload progress: ${progress}%`);
-                    });
-                    fileId = uploadResponse.file_id;
-                } else if (urlInput) {
-                    // Use URL
-                    fileId = urlInput;
-                } else {
-                    throw new Error('Please select a file or enter a URL');
+                if (!currentFile) {
+                    throw new Error('请先选择 PDF 文件');
                 }
+
+                const uploadResponse = await api.uploadFile(currentFile, (progress) => {
+                    console.log(`Upload progress: ${progress}%`);
+                });
+                uploadedFileId = uploadResponse.file_id;
 
                 // Get page selection
                 let pages = null;
@@ -254,12 +267,17 @@
                     pages = '1';
                 } else if (pageRange === 'first5') {
                     pages = '1-5';
+                } else if (pageRange === 'custom') {
+                    throw new Error('请输入自定义页码范围');
+                } else {
+                    pages = 'all';
                 }
 
                 // Start translation - send pages as object
                 const translationSettings = pages ? { pages: pages } : {};
-                const result = await api.startTranslation(fileId, translationSettings);
+                const result = await api.startTranslation(uploadResponse.file_id, translationSettings);
                 currentTaskId = result.task_id;
+                document.getElementById('translate-btn').disabled = true;
 
                 // Show progress card
                 document.getElementById('progress-card').style.display = 'block';
@@ -269,49 +287,113 @@
                 startProgressPolling();
 
             } catch (error) {
-                showAlert('Translation failed: ' + error.message, 'error');
+                if (uploadedFileId && !currentTaskId) {
+                    try {
+                        await api.deleteUploadedFile(uploadedFileId);
+                    } catch (cleanupError) {
+                        console.warn('Failed to remove orphan upload:', cleanupError);
+                    }
+                }
+                showAlert(error.message || '翻译启动失败', 'error');
             } finally {
                 hideLoading();
+                translationStartInProgress = false;
+                if (!currentTaskId) {
+                    document.getElementById('translate-btn').disabled = !currentFile || !pageSelectionReady;
+                }
             }
         });
 
-        function startProgressPolling() {
+        function startProgressPolling(taskIds = null) {
             if (progressInterval) {
-                clearInterval(progressInterval);
+                clearTimeout(progressInterval);
             }
 
-            progressInterval = setInterval(async () => {
-                try {
-                    const response = await api.getTranslationStatus(currentTaskId);
-                    const status = response.task || response;
-
-                    // Update progress
-                    const progressFill = document.getElementById('progress-fill');
-                    const progressText = document.getElementById('progress-text');
-                    const progressDetail = document.getElementById('progress-detail');
-
-                    progressFill.style.width = (status.progress || 0) + '%';
-                    progressText.textContent = status.message || status.status || 'Processing...';
-                    progressDetail.textContent = status.detail || '';
-
-                    // Check if complete
-                    if (status.status === 'completed') {
-                        clearInterval(progressInterval);
-                        showTranslationResult(status);
-                    } else if (status.status === 'failed') {
-                        clearInterval(progressInterval);
-                        showAlert('Translation failed: ' + (status.message || status.error || 'Unknown error'), 'error');
-                        document.getElementById('progress-card').style.display = 'none';
-                    }
-                } catch (error) {
-                    console.error('Error polling status:', error);
-                    clearInterval(progressInterval);
-                    showAlert('Error checking translation status', 'error');
+            const pendingTaskIds = new Set(
+                (taskIds || [currentTaskId]).filter((taskId) => Boolean(taskId))
+            );
+            const consecutiveErrors = new Map();
+            let historyRefreshRequired = false;
+            const pollStatus = async () => {
+                if (pendingTaskIds.size === 0) {
+                    progressInterval = null;
+                    return;
                 }
-            }, 2000); // Poll every 2 seconds
+                for (const taskId of [...pendingTaskIds]) {
+                    try {
+                        const response = await api.getTranslationStatus(taskId);
+                        const status = response.task || response;
+                        consecutiveErrors.delete(taskId);
+
+                        if (taskId === currentTaskId) {
+                            const progressFill = document.getElementById('progress-fill');
+                            const progressText = document.getElementById('progress-text');
+                            const progressDetail = document.getElementById('progress-detail');
+                            progressFill.style.width = (status.progress || 0) + '%';
+                            progressText.textContent = status.message || status.status || 'Processing...';
+                            progressDetail.textContent = status.detail || '';
+                        }
+
+                        if (['completed', 'failed', 'cancelled'].includes(status.status)) {
+                            pendingTaskIds.delete(taskId);
+                            if (taskId === currentTaskId) {
+                                if (status.status === 'completed') {
+                                    showTranslationResult(status, taskId);
+                                } else if (status.status === 'failed') {
+                                    showAlert('Translation failed: ' + (status.message || status.error || 'Unknown error'), 'error');
+                                    document.getElementById('progress-card').style.display = 'none';
+                                } else {
+                                    document.getElementById('progress-card').style.display = 'none';
+                                }
+                                const nextTaskId = [...pendingTaskIds][0];
+                                currentTaskId = nextTaskId || null;
+                                if (nextTaskId) {
+                                    showActiveTaskProgress();
+                                } else {
+                                    document.getElementById('translate-btn').disabled = false;
+                                }
+                            }
+                        }
+                    } catch (error) {
+                        if (error.status === 404) {
+                            pendingTaskIds.delete(taskId);
+                            consecutiveErrors.delete(taskId);
+                            historyRefreshRequired = true;
+                            if (taskId === currentTaskId) {
+                                const nextTaskId = [...pendingTaskIds][0] || null;
+                                currentTaskId = nextTaskId;
+                                if (nextTaskId) {
+                                    showActiveTaskProgress();
+                                } else {
+                                    document.getElementById('progress-card').style.display = 'none';
+                                    document.getElementById('translate-btn').disabled = !currentFile || !pageSelectionReady;
+                                }
+                            }
+                            continue;
+                        }
+                        console.error('Error polling status:', error);
+                        const errorCount = (consecutiveErrors.get(taskId) || 0) + 1;
+                        consecutiveErrors.set(taskId, errorCount);
+                        if (errorCount >= 5) {
+                            showAlert('连续多次无法获取翻译状态：' + (error.message || '网络错误'), 'error');
+                            consecutiveErrors.set(taskId, 0);
+                        }
+                    }
+                }
+                if (historyRefreshRequired) {
+                    await loadHistory();
+                    return;
+                }
+                if (pendingTaskIds.size > 0) {
+                    progressInterval = setTimeout(pollStatus, 2000);
+                } else {
+                    progressInterval = null;
+                }
+            };
+            pollStatus();
         }
 
-        function showTranslationResult(status) {
+        function showTranslationResult(status, taskId = currentTaskId) {
             document.getElementById('progress-card').style.display = 'none';
             document.getElementById('result-card').style.display = 'block';
 
@@ -319,18 +401,20 @@
             const outputFiles = status.output_files || {};
             const monoPath = outputFiles.mono;
             const dualPath = outputFiles.dual;
+            const monoBtn = document.getElementById('download-mono-btn');
+            const dualBtn = document.getElementById('download-dual-btn');
+            monoBtn.style.display = 'none';
+            dualBtn.style.display = 'none';
 
             // Show download buttons based on available files
             if (monoPath) {
-                const monoBtn = document.getElementById('download-mono-btn');
                 monoBtn.style.display = 'block';
-                monoBtn.onclick = () => downloadFile('mono');
+                monoBtn.onclick = () => downloadFile('mono', taskId);
             }
 
             if (dualPath) {
-                const dualBtn = document.getElementById('download-dual-btn');
                 dualBtn.style.display = 'block';
-                dualBtn.onclick = () => downloadFile('dual');
+                dualBtn.onclick = () => downloadFile('dual', taskId);
             }
 
             // Reload history
@@ -352,19 +436,19 @@
                     }
                 });
 
+                if (api.handleUnauthorized(response)) {
+                    throw new Error('Unauthorized');
+                }
                 if (!response.ok) {
-                    throw new Error('Download failed');
+                    const errorData = await api.parseResponseBody(response);
+                    throw new Error(api.responseErrorMessage(errorData, '下载失败'));
                 }
 
-                // Get filename from Content-Disposition header or use default
                 const contentDisposition = response.headers.get('Content-Disposition');
-                let filename = `translated_${fileType}.pdf`;
-                if (contentDisposition) {
-                    const match = contentDisposition.match(/filename="?([^";\n]+)"?/);
-                    if (match) {
-                        filename = match[1];
-                    }
-                }
+                const filename = api.getDownloadFilename(
+                    contentDisposition,
+                    `translated_${fileType}.pdf`
+                );
 
                 // Create blob and download
                 const blob = await response.blob();
@@ -386,10 +470,17 @@
         document.getElementById('new-translation-btn').addEventListener('click', () => {
             currentFile = null;
             currentTaskId = null;
+            translationStartInProgress = false;
+            if (progressInterval) {
+                clearTimeout(progressInterval);
+                progressInterval = null;
+            }
             fileInput.value = '';
-            document.getElementById('url-input').value = '';
             document.getElementById('translate-btn').disabled = true;
             document.getElementById('result-card').style.display = 'none';
+            document.getElementById('progress-card').style.display = 'none';
+            document.getElementById('download-mono-btn').style.display = 'none';
+            document.getElementById('download-dual-btn').style.display = 'none';
             uploadZone.querySelector('.upload-text').textContent = i18n.t('upload.drag');
             uploadZone.querySelector('.upload-hint').textContent = i18n.t('upload.browse');
         });
@@ -400,72 +491,99 @@
                 const response = await api.getTranslationHistory();
                 const history = response.history || [];
                 const historyList = document.getElementById('history-list');
+                historyList.replaceChildren();
 
                 if (history.length === 0) {
-                    historyList.innerHTML = `<p class="text-center text-muted">${i18n.t('upload.history.empty')}</p>`;
+                    const emptyMessage = document.createElement('p');
+                    emptyMessage.className = 'text-center text-muted';
+                    emptyMessage.textContent = i18n.t('upload.history.empty');
+                    historyList.appendChild(emptyMessage);
                     return;
                 }
 
-                historyList.innerHTML = history.map(item => {
-                    const statusColor = item.status === 'completed' ? 'var(--accent-success)' : item.status === 'failed' ? 'var(--accent-error)' : 'var(--accent-warning)';
-
-                    // Extract original filename by removing UUID prefix
-                    // Format is usually: {uuid}_{original_filename}
+                history.forEach(item => {
+                    const statusColor = item.status === 'completed'
+                        ? 'var(--accent-success)'
+                        : item.status === 'failed' || item.status === 'cancelled'
+                            ? 'var(--accent-error)'
+                            : 'var(--accent-warning)';
                     let displayName = item.original_filename || item.filename || 'Untitled';
-
-                    // If filename contains underscore, try to extract the part after the first UUID-like segment
                     if (displayName.includes('_')) {
                         const parts = displayName.split('_');
-                        // Check if first part looks like a UUID (contains hyphens and is long)
                         if (parts[0].includes('-') && parts[0].length > 20) {
-                            // Remove the UUID part and rejoin the rest
                             displayName = parts.slice(1).join('_');
                         }
                     }
-
-                    // Fallback: if still looks like it has UUID, just use the last part
                     if (displayName.length === 0 || displayName === '_') {
                         displayName = item.filename || 'Untitled';
                     }
 
-                    return `
-                    <div class="history-item" style="display: flex; align-items: stretch; background: var(--bg-secondary); border-radius: 8px; margin-bottom: 0.75rem; overflow: hidden; border: 1px solid var(--border-color);">
-                        <!-- Status indicator bar -->
-                        <div class="history-status-bar" style="width: 6px; background: ${statusColor}; flex-shrink: 0;"></div>
-                        
-                        <!-- Main content -->
-                        <div style="flex: 1; padding: 1rem; display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem;">
-                            <!-- Filename -->
-                            <div style="flex: 1; min-width: 150px;">
-                                <div style="font-weight: 500; word-break: break-all; font-size: 0.9rem;" title="${item.filename}">${displayName}</div>
-                            </div>
-                            
-                            <!-- Action buttons -->
-                            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                                ${item.status === 'completed' && item.mono_path ?
-                            `<button class="btn-icon btn-icon-primary" onclick="downloadFile('mono', '${item.task_id}')" title="${i18n.t('upload.result.mono')}">
-                                <i class="fas fa-download"></i>
-                            </button>` : ''}
-                                ${item.status === 'completed' && item.dual_path ?
-                            `<button class="btn-icon btn-icon-secondary" onclick="downloadFile('dual', '${item.task_id}')" title="${i18n.t('upload.result.dual')}">
-                                <i class="fas fa-exchange-alt"></i>
-                            </button>` : ''}
-                                <button class="btn-icon btn-icon-danger" onclick="deleteHistoryItem('${item.task_id}')" title="${i18n.t('common.delete')}">
-                                    <i class="fas fa-trash-alt"></i>
-                                </button>
-                            </div>
-                            
-                            <!-- Timestamp -->
-                            <div style="color: var(--text-muted); font-size: 0.8rem; white-space: nowrap;">
-                                ${formatDate(item.created_at)}
-                            </div>
-                        </div>
-                    </div>
-                `;
-                }).join('');
+                    const historyItem = document.createElement('div');
+                    historyItem.className = 'history-item';
+                    historyItem.style.cssText = 'display:flex;align-items:stretch;background:var(--bg-secondary);border-radius:8px;margin-bottom:0.75rem;overflow:hidden;border:1px solid var(--border-color);';
+
+                    const statusBar = document.createElement('div');
+                    statusBar.className = 'history-status-bar';
+                    statusBar.style.cssText = `width:6px;background:${statusColor};flex-shrink:0;`;
+                    historyItem.appendChild(statusBar);
+
+                    const content = document.createElement('div');
+                    content.style.cssText = 'flex:1;padding:1rem;display:flex;flex-wrap:wrap;align-items:center;gap:0.75rem;';
+
+                    const filenameContainer = document.createElement('div');
+                    filenameContainer.style.cssText = 'flex:1;min-width:150px;';
+                    const filenameElement = document.createElement('div');
+                    filenameElement.style.cssText = 'font-weight:500;word-break:break-all;font-size:0.9rem;';
+                    filenameElement.textContent = displayName;
+                    filenameElement.title = item.filename || displayName;
+                    filenameContainer.appendChild(filenameElement);
+                    content.appendChild(filenameContainer);
+
+                    const actions = document.createElement('div');
+                    actions.style.cssText = 'display:flex;gap:0.5rem;flex-wrap:wrap;';
+                    if (item.status === 'completed' && item.mono_path) {
+                        actions.appendChild(createHistoryAction('btn-icon-primary', 'fa-download', i18n.t('upload.result.mono'), () => downloadFile('mono', item.task_id)));
+                    }
+                    if (item.status === 'completed' && item.dual_path) {
+                        actions.appendChild(createHistoryAction('btn-icon-secondary', 'fa-exchange-alt', i18n.t('upload.result.dual'), () => downloadFile('dual', item.task_id)));
+                    }
+                    actions.appendChild(createHistoryAction('btn-icon-danger', 'fa-trash-alt', i18n.t('common.delete'), () => deleteHistoryItem(item.task_id)));
+                    content.appendChild(actions);
+
+                    const timestamp = document.createElement('div');
+                    timestamp.style.cssText = 'color:var(--text-muted);font-size:0.8rem;white-space:nowrap;';
+                    timestamp.textContent = formatDate(item.created_at);
+                    content.appendChild(timestamp);
+
+                    historyItem.appendChild(content);
+                    historyList.appendChild(historyItem);
+                });
+
+                const activeTaskIds = history
+                    .filter(item => ['queued', 'processing'].includes(item.status))
+                    .map(item => item.task_id);
+                if (activeTaskIds.length > 0) {
+                    if (!currentTaskId || !activeTaskIds.includes(currentTaskId)) {
+                        currentTaskId = activeTaskIds[0];
+                    }
+                    showActiveTaskProgress();
+                    startProgressPolling(activeTaskIds);
+                }
             } catch (error) {
                 console.error('Error loading history:', error);
             }
+        }
+
+        function createHistoryAction(buttonClass, iconClass, title, action) {
+            const button = document.createElement('button');
+            button.className = `btn-icon ${buttonClass}`;
+            button.type = 'button';
+            button.title = title;
+            button.addEventListener('click', action);
+            const icon = document.createElement('i');
+            icon.className = `fas ${iconClass}`;
+            button.appendChild(icon);
+            return button;
         }
 
         async function deleteHistoryItem(taskId) {
@@ -474,6 +592,16 @@
             }
             try {
                 await api.deleteHistoryItem(taskId);
+                if (taskId === currentTaskId) {
+                    currentTaskId = null;
+                    if (progressInterval) {
+                        clearTimeout(progressInterval);
+                        progressInterval = null;
+                    }
+                    document.getElementById('progress-card').style.display = 'none';
+                    document.getElementById('result-card').style.display = 'none';
+                    document.getElementById('translate-btn').disabled = !currentFile;
+                }
                 showAlert(i18n.t('upload.history.delete.success'), 'success');
                 await loadHistory();
             } catch (error) {
@@ -487,6 +615,9 @@
             try {
                 await requireAuth();
                 await updateUserInfo();
+                await loadSavedPageSelection();
+                pageSelectionReady = true;
+                document.getElementById('translate-btn').disabled = !currentFile;
                 await loadHistory();
             } catch (error) {
                 console.error('Initialization error:', error);

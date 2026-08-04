@@ -1,6 +1,7 @@
 [**고급 옵션**](./introduction.md) > **고급 옵션** _(현재)_
 
----
+> [!NOTE]
+> 이 페이지는 업스트림 pdf2zh-next 명령줄 런타임의 옵션을 참고하기 위한 문서입니다. GBabelDocUI 다중 사용자 Web UI의 설명이 아닙니다. gbabeldocui로 GBabelDocUI를 시작하고 /login.html을 연 다음 설정 페이지에서 번역 옵션을 구성하십시오.
 
 <h3 id="목차">목차</h3>
 
@@ -17,7 +18,6 @@
 - [인증 및 환영 페이지](#인증 - 및 - 환영 - 페이지)
 - [용어집 지원](#용어집 - 지원)
 
----
 
 #### 명령줄 인수
 
@@ -98,7 +98,6 @@
 
 [⬆️ 맨 위로 이동](#toc)
 
----
 
 #### 속도 제한 구성 가이드
 
@@ -156,7 +155,6 @@ pdf2zh example.pdf --qps 45 --pool-max-worker 45
 
 [⬆️ 맨 위로 이동](#toc)
 
----
 
 #### 부분 번역
 
@@ -195,7 +193,6 @@ pdf2zh_next example.pdf --pages "1,3,10-20,25-"
 
 [⬆️ 맨 위로 이동](#toc)
 
----
 
 #### 원본 및 대상 언어 지정
 
@@ -207,7 +204,6 @@ pdf2zh_next example.pdf --lang-in en -lang-out ja
 
 [⬆️ 맨 위로 이동](#toc)
 
----
 
 #### 예외와 함께 번역하기
 
@@ -225,7 +221,6 @@ pdf2zh_next example.pdf --formular-font-pattern "(CM[^R]|MS.M|XY|MT|BL|RM|EU|LA|
 
 [⬆️ 맨 위로 이동](#toc)
 
----
 
 #### 사용자 지정 프롬프트
 
@@ -239,7 +234,6 @@ pdf2zh_next example.pdf --custom-system-prompt "/no_think You are a professional
 
 [⬆️ 맨 위로 이동](#toc)
 
----
 
 #### 사용자 지정 구성
 
@@ -300,7 +294,6 @@ pdf2zh_next --config-file '/path/config.toml'
 
 [⬆️ 맨 위로 이동](#toc)
 
----
 
 #### Skip clean
 
@@ -321,7 +314,6 @@ PDF2ZH_SKIP_CLEAN=TRUE pdf2zh_next example.pdf
 > [!TIP]
 > `--enhance-compatibility` 가 활성화되면 Skip clean 이 자동으로 활성화됩니다.
 
----
 
 #### 번역 캐시
 
@@ -333,7 +325,6 @@ pdf2zh_next example.pdf --ignore-cache
 
 [⬆️ 맨 위로 이동](#toc)
 
----
 
 #### 공개 서비스로 배포하기
 
@@ -362,7 +353,6 @@ disable_config_auto_save = true
 
 [⬆️ 맨 위로 이동](#toc)
 
----
 
 #### 인증 및 환영 페이지
 
@@ -411,7 +401,6 @@ welcome_page = "/path/to/welcome/html/file"
 
 [⬆️ 맨 위로 이동](#toc)
 
----
 
 #### 용어집 지원
 
