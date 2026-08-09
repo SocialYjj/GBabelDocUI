@@ -9,9 +9,11 @@ repo_url: https://github.com/SocialYjj/GBabelDocUI
 edit_uri: edit/main/docs/
 
 # Configuration
+# Keep this exclusion ASCII-only. pathspec can select Hyperscan on Linux, and
+# the current binding rejects some non-ASCII expressions during compilation.
 use_directory_urls: true
 exclude_docs: |
-  项目全量修复计划.md
+  _internal/
 theme:
   name: material
   features:
@@ -73,7 +75,7 @@ plugins:
       minify_html: true
   - git-authors:
       exclude:
-        - 项目全量修复计划.md
+        - _internal/**
 
   # i18n language support en, zh, zh-TW, ja, ko, fr, de, es, ru, it, pt
   - i18n:
@@ -373,7 +375,7 @@ plugins:
   - git-revision-date-localized:
       enable_creation_date: true
       exclude:
-        - 项目全量修复计划.md
+        - _internal/**
 
 # Additional configuration
 extra:
