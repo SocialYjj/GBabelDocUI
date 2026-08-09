@@ -1,61 +1,44 @@
-[**Commencer**](./getting-started.md) > **Installation** > **uv** _(actuel)_
+# Installer GBabelDocUI avec uv
 
----
+GBabelDocUI contient déjà le sous-ensemble vérifié de pdf2zh-next dont il a besoin. N'utilisez pas la CLI amont à la place de `gbabeldocui`.
 
-> **Périmètre :** Cette page est une référence pour l'[installation officielle de `pdf2zh-next` avec uv](https://github.com/PDFMathTranslate-next/PDFMathTranslate-next). Elle ne documente pas l'interface Web de GBabelDocUI. Pour l'interface Web de GBabelDocUI, consultez [`USAGE_webui.md`](./USAGE_webui.md) et les instructions Docker. Ne remplacez pas `pdf2zh_next` par `gbabeldocui` : leurs arguments de ligne de commande ne sont pas compatibles.
+## Prérequis
 
-### Installer PDFMathTranslate via uv
+- Python 3.10–3.13
+- Git
+- [uv](https://docs.astral.sh/uv/getting-started/installation/)
 
-#### Qu'est-ce que uv ? Comment l'installer ?
+## Installer et exécuter
 
-uv est un gestionnaire de paquets et de projets Python extrêmement rapide, écrit en Rust.
-<br>
-Pour installer uv sur votre ordinateur, veuillez consulter [cet article](https://docs.astral.sh/uv/getting-started/installation/).
+```bash
+git clone https://github.com/SocialYjj/GBabelDocUI.git
+cd GBabelDocUI
+uv sync --frozen
+```
 
----
-
-#### Installation
-
-1. Python installé (version 3.10 <= version <= 3.12) ;
-
-2. Utilisez la commande suivante pour utiliser notre package :
+=== "Linux/macOS"
 
     ```bash
-    pip install uv
-    uv tool install --python 3.12 pdf2zh-next
+    export GBABELDOCUI_COOKIE_SECURE=false
+    uv run gbabeldocui
     ```
 
-Après l'installation, vous pouvez commencer la traduction via la **ligne de commande** ou le **WebUI**.
+=== "Windows PowerShell"
 
-!!! Warning
+    ```powershell
+    $env:GBABELDOCUI_COOKIE_SECURE = "false"
+    uv run gbabeldocui
+    ```
 
-    Si vous voyez l'erreur `command not found: pdf2zh_next` lors de l'exécution, veuillez configurer les variables d'environnement comme suit et réessayer :
+Ouvrez ensuite `http://127.0.0.1:7860/login.html`.
 
-    === "macOS et Linux"
+En production, conservez les cookies Secure, utilisez HTTPS et une seule instance par répertoire de données.
 
-        Ajoutez ce qui suit à votre ~/.zshrc :
+## Environnement de développement
 
-        ```console
-        export PATH="$PATH:/Users/Username/.local/bin"
-        ```
-
-        Puis redémarrez votre terminal
-
-    === "Windows"
-
-        Entrez ce qui suit dans PowerShell :
-
-        ```powershell
-        $env:Path = "C:\Users\Username\.local\bin;$env:Path"
-        ```
-
-        Puis redémarrez votre terminal
-
-> [!NOTE]
-> Si vous rencontrez des problèmes lors de l'utilisation de WebUI, veuillez consulter [Utilisation --> WebUI](./USAGE_webui.md).
-
-> [!NOTE]
-> Si vous rencontrez des problèmes lors de l'utilisation de la ligne de commande, veuillez consulter [Utilisation --> Ligne de commande](./USAGE_commandline.md).
-
-<div align="right"> 
-<h6><small>Une partie du contenu de cette page a été traduite par GPT et peut contenir des erreurs.</small></h6>
+```bash
+uv sync --dev --frozen
+uv run pytest -q
+uv run ruff check gbabeldocui tests
+uv run ruff format --check gbabeldocui tests
+```

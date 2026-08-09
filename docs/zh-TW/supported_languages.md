@@ -1,5 +1,5 @@
-> [!NOTE]
-> 請 [點擊這裡](https://funstory-ai.github.io/BabelDOC/supported_languages/) 前往 *BabelDOC 支持的語言* 頁面。該頁面的資訊同樣適用於 pdf2zh。
+# 支援的語言
 
-<div align="right"> 
-<h6><small>Some content on this page has been translated by GPT and may contain errors.</small></h6>
+目前 Web UI 支援來源語言自動偵測，以及英文、中文、日文、韓文、法文、德文、西班牙文與俄文。自動偵測只能用於來源語言。
+
+確切代碼請參閱[語言代碼](./advanced/Language-Codes.md)。實際翻譯品質與可用模型仍取決於所設定的翻譯服務與 BabelDOC。

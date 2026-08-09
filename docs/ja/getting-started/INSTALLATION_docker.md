@@ -1,57 +1,46 @@
-[**開始**](./getting-started.md) > **インストール** > **Docker** _(current)_
+# Docker Compose で GBabelDocUI をインストール
 
----
+Docker Engine、Compose v2、Git が必要です。リポジトリの設定には必要な永続化マウントとセキュリティ制約が含まれます。
 
-### GBabelDocUI を docker でインストール
-
-#### Docker とは何ですか？
-
-[Docker](https://docs.docker.com/get-started/docker-overview/) は、アプリケーションの開発、配布、実行のためのオープンプラットフォームです。Docker を使用すると、アプリケーションをインフラストラクチャから分離できるため、ソフトウェアを迅速に提供できます。Docker では、アプリケーションを管理するのと同じ方法でインフラストラクチャを管理できます。Docker のコード配布、テスト、デプロイの方法論を活用することで、コードを記述してから本番環境で実行するまでの遅延を大幅に削減できます。
-
-#### インストール
-
-<h4>1. Start the application with the repository Compose file:</h4>
+## ローカル起動
 
 ```bash
+git clone https://github.com/SocialYjj/GBabelDocUI.git
+cd GBabelDocUI
+```
+
+Linux では UID/GID 10001 が書き込めるようにデータディレクトリを準備します。
+
+```bash
+mkdir -p data
+sudo chown -R 10001:10001 data
 docker compose up -d --build
 ```
 
-> [!NOTE]
->
-> The Compose file persists `./data` for accounts, settings, uploads and outputs. The default port binding is `127.0.0.1:7860`; put the service behind an HTTPS reverse proxy before exposing it publicly.
->
-> After the first successful GitHub Actions publish, you can use the amd64 GHCR image instead:
->
-> ```bash
-> docker pull ghcr.io/socialyjj/gbabeldocui:latest
-> docker run -d --name gbabeldocui --restart unless-stopped -p 127.0.0.1:7860:7860 -v "$(pwd)/data:/app/data" ghcr.io/socialyjj/gbabeldocui:latest
-> ```
-<h4>2. デフォルトのブラウザでこの URL を入力して WebUI ページを開きます：</h4>
+起動後に `http://127.0.0.1:7860/login.html` を開きます。
 
-```
-http://localhost:7860/
+## HTTPS で公開
+
+先に HTTPS リバースプロキシを設定し、少なくとも次の環境変数で Compose を起動します。
+
+```bash
+export GBABELDOCUI_COOKIE_SECURE=true
+export GBABELDOCUI_SETUP_TOKEN='replace-with-a-long-random-one-time-value'
+docker compose up -d --build
 ```
 
-> [!NOTE]
-> WebUI の使用中に問題が発生した場合は、[使い方 --> WebUI](./USAGE_webui.md) を参照してください。
+セットアップトークンは最初の管理者を遠隔作成するときだけ使用し、完了後に削除してサービスを再起動します。
 
-> [!NOTE]
-> コマンドラインの使用中に問題が発生した場合は、[使い方 --> コマンドライン](./USAGE_commandline.md) を参照してください。
-<!-- 
-#### For docker deployment on cloud service:
+サービスをスケールさせたり、同じデータディレクトリで複数の Uvicorn worker を使用したりしないでください。
 
-<div>
-<a href="https://www.heroku.com/deploy?template=https://github.com/GBabelDocUI/GBabelDocUI-next">
-  <img src="https://www.herokucdn.com/deploy/button.svg" alt="Deploy" height="26"></a>
-<a href="https://render.com/deploy">
-  <img src="https://render.com/images/deploy-to-render-button.svg" alt="Deploy to Koyeb" height="26"></a>
-<a href="https://zeabur.com/templates/5FQIGX?referralCode=reycn">
-  <img src="https://zeabur.com/button.svg" alt="Deploy on Zeabur" height="26"></a>
-<a href="https://app.koyeb.com/deploy?type=git&builder=buildpack&repository=github.com/GBabelDocUI/GBabelDocUI-next&branch=main&name=pdf-math-translate">
-  <img src="https://www.koyeb.com/static/images/deploy/button.svg" alt="Deploy to Koyeb" height="26"></a>
-</div>
+## 永続データ
 
--->
+- `./data:/app/data`: accounts, settings, tasks, uploads, and outputs.
+- `babeldoc-cache:/cache`: BabelDOC models and font caches.
+- `/tmp`: bounded temporary filesystem.
 
-<div align="right"> 
-<h6><small>このページの一部のコンテンツは GPT によって翻訳されており、エラーが含まれている可能性があります。</small></h6>
+```bash
+docker compose ps
+docker compose logs --tail 200 gbabeldocui
+docker compose down
+```

@@ -5,7 +5,7 @@ GBabelDocUI 是基于官方 `pdf2zh-next` 运行时的多用户 Web UI 适配层
 ## 提交 Pull Request 前
 
 1. 阅读 [NOTICE](https://github.com/SocialYjj/GBabelDocUI/blob/main/NOTICE)，保留上游项目的许可证和版权声明。
-2. 不要提交 `data/`、`yuan/`、`.env` 文件、API 密钥、数据库、上传的 PDF、生成结果或本地缓存。
+2. 不要提交 `data/`、`.env` 文件、API 密钥、数据库、上传的 PDF、生成结果或本地缓存。
 3. 保持单进程执行模型；不要让多个 worker 或副本共享同一个 `data/` 目录。
 4. 重大行为变化或依赖变更应先提交 Issue，说明迁移方式和运维影响。
 

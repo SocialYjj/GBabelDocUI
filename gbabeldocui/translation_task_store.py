@@ -4,9 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import sqlite3
-import tempfile
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import datetime
@@ -36,24 +34,12 @@ def _utc_now() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
-def _history_record_from_task(task: dict[str, Any]) -> dict[str, Any]:
-    """Build the on-disk history representation from a task record."""
-    return {
-        "task_id": task["task_id"],
-        "file_id": task.get("file_id", ""),
-        "filename": task.get("filename", ""),
-        "original_filename": task.get("original_filename", ""),
-        "created_at": task.get("created_at"),
-        "completed_at": task.get("completed_at"),
-        "status": task.get("status", "failed"),
-        "mono_path": task.get("mono_path"),
-        "dual_path": task.get("dual_path"),
-        "error": task.get("error"),
-    }
+def _reject_non_finite_json_number(value: str):
+    raise ValueError(f"Non-finite JSON number is not allowed: {value}")
 
 
 class TranslationHistoryFile:
-    """Atomically update one user's legacy-compatible ``history.json`` file."""
+    """Read a legacy history file once during the SQLite migration."""
 
     def __init__(self, history_file: Path):
         self.history_file = history_file
@@ -65,77 +51,54 @@ class TranslationHistoryFile:
             return []
 
         with FileLock(str(self.lock_file), timeout=30):
-            history = json.loads(self.history_file.read_text(encoding="utf-8"))
+            history = json.loads(
+                self.history_file.read_text(encoding="utf-8"),
+                parse_constant=_reject_non_finite_json_number,
+            )
 
         if not isinstance(history, list):
             raise ValueError("Translation history must be a JSON array")
         return [item for item in history if isinstance(item, dict)]
-
-    def upsert(self, task: dict[str, Any]) -> None:
-        """Insert or replace one task while serializing concurrent writers."""
-        self.history_file.parent.mkdir(parents=True, exist_ok=True)
-        history_record = _history_record_from_task(task)
-
-        with FileLock(str(self.lock_file), timeout=30):
-            history = self._read_locked()
-            replaced = False
-            for index, item in enumerate(history):
-                if item.get("task_id") == history_record["task_id"]:
-                    history[index] = history_record
-                    replaced = True
-                    break
-            if not replaced:
-                history.append(history_record)
-            self._write_locked(history)
-
-    def remove(self, task_id: str) -> None:
-        """Remove one history item without touching unrelated records."""
-        if not self.history_file.exists():
-            return
-
-        with FileLock(str(self.lock_file), timeout=30):
-            history = self._read_locked()
-            remaining = [item for item in history if item.get("task_id") != task_id]
-            if len(remaining) != len(history):
-                self._write_locked(remaining)
-
-    def _read_locked(self) -> list[dict[str, Any]]:
-        if not self.history_file.exists():
-            return []
-        history = json.loads(self.history_file.read_text(encoding="utf-8"))
-        if not isinstance(history, list):
-            raise ValueError("Translation history must be a JSON array")
-        return [item for item in history if isinstance(item, dict)]
-
-    def _write_locked(self, history: list[dict[str, Any]]) -> None:
-        temporary_path: Path | None = None
-        try:
-            with tempfile.NamedTemporaryFile(
-                mode="w",
-                encoding="utf-8",
-                dir=self.history_file.parent,
-                prefix=f".{self.history_file.name}.",
-                suffix=".tmp",
-                delete=False,
-            ) as temporary_file:
-                temporary_path = Path(temporary_file.name)
-                json.dump(history, temporary_file, indent=2, ensure_ascii=False)
-                temporary_file.write("\n")
-                temporary_file.flush()
-                os.fsync(temporary_file.fileno())
-            temporary_path.replace(self.history_file)
-        finally:
-            if temporary_path is not None:
-                temporary_path.unlink(missing_ok=True)
 
 
 class TranslationTaskStore:
-    """Persist task state in SQLite and retain the existing JSON history export."""
+    """Persist translation tasks in SQLite and import legacy JSON history once."""
 
     def __init__(self, db_path: Path):
-        self.db_path = Path(db_path)
-        self.data_dir = self.db_path.parent
+        self.db_path = Path(db_path).resolve()
+        self.data_dir = self.db_path.parent.resolve()
         self._initialize_database()
+
+    def _storage_path(self, path: Path, field_name: str) -> str:
+        """Store data-owned paths relative to the data directory."""
+        resolved_path = Path(path).resolve(strict=False)
+        try:
+            relative_path = resolved_path.relative_to(self.data_dir)
+        except ValueError as exc:
+            raise ValueError(f"{field_name} must be inside the data directory") from exc
+        return relative_path.as_posix()
+
+    def _resolved_storage_path(self, value: object, field_name: str) -> Path | None:
+        """Resolve current and legacy paths without permitting external paths."""
+        if value in (None, ""):
+            return None
+        candidate = Path(str(value))
+        resolved_path = (
+            candidate if candidate.is_absolute() else self.data_dir / candidate
+        ).resolve(strict=False)
+        try:
+            resolved_path.relative_to(self.data_dir)
+        except ValueError:
+            logger.warning("Ignoring %s outside the data directory", field_name)
+            return None
+        return resolved_path
+
+    def _materialize_task(self, task: dict[str, Any]) -> dict[str, Any]:
+        materialized_task = dict(task)
+        for field_name in ("input_path", "output_dir", "mono_path", "dual_path"):
+            value = self._resolved_storage_path(task.get(field_name), field_name)
+            materialized_task[field_name] = str(value) if value is not None else None
+        return materialized_task
 
     def _connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(self.db_path, timeout=30)
@@ -212,13 +175,37 @@ class TranslationTaskStore:
             )
             connection.execute(
                 """
+                CREATE INDEX IF NOT EXISTS idx_translation_tasks_terminal_time
+                ON translation_tasks (status, completed_at)
+                """
+            )
+            connection.execute(
+                """
                 CREATE TABLE IF NOT EXISTS translation_history_imports (
                     username TEXT PRIMARY KEY,
                     imported_at TEXT NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'success',
+                    error_summary TEXT,
+                    CHECK (status IN ('success', 'failed')),
                     FOREIGN KEY (username) REFERENCES users(username) ON DELETE CASCADE
                 )
                 """
             )
+            existing_import_columns = {
+                row[1]
+                for row in connection.execute(
+                    "PRAGMA table_info(translation_history_imports)"
+                ).fetchall()
+            }
+            if "status" not in existing_import_columns:
+                connection.execute(
+                    "ALTER TABLE translation_history_imports "
+                    "ADD COLUMN status TEXT NOT NULL DEFAULT 'success'"
+                )
+            if "error_summary" not in existing_import_columns:
+                connection.execute(
+                    "ALTER TABLE translation_history_imports ADD COLUMN error_summary TEXT"
+                )
 
     def create_task(
         self,
@@ -244,7 +231,10 @@ class TranslationTaskStore:
             raise ValueError("settings_snapshot must be a JSON object")
         try:
             serialized_settings_snapshot = json.dumps(
-                settings_snapshot, ensure_ascii=False, separators=(",", ":")
+                settings_snapshot,
+                ensure_ascii=False,
+                separators=(",", ":"),
+                allow_nan=False,
             )
         except (TypeError, ValueError) as exc:
             raise ValueError("settings_snapshot must contain JSON values") from exc
@@ -292,15 +282,18 @@ class TranslationTaskStore:
                     file_id,
                     filename,
                     Path(filename).stem,
-                    str(input_path),
-                    str(output_dir),
+                    self._storage_path(input_path, "input_path"),
+                    self._storage_path(output_dir, "output_dir"),
                     "Translation queued",
                     now,
                     now,
                     serialized_settings_snapshot,
                 ),
             )
-        return self.get_task(task_id, username=username)  # type: ignore[return-value]
+        task = self.get_task(task_id, username=username)
+        if task is None:
+            raise RuntimeError("Created translation task could not be loaded")
+        return task
 
     def mark_processing(self, task_id: str, message: str) -> bool:
         return self._update_task_status(
@@ -356,8 +349,8 @@ class TranslationTaskStore:
                 (
                     now,
                     now,
-                    str(mono_path) if mono_path else None,
-                    str(dual_path) if dual_path else None,
+                    self._storage_path_or_empty(mono_path, "mono_path"),
+                    self._storage_path_or_empty(dual_path, "dual_path"),
                     task_id,
                 ),
             )
@@ -446,7 +439,7 @@ class TranslationTaskStore:
 
         with self._managed_connection() as connection:
             row = connection.execute(query, parameters).fetchone()
-        return dict(row) if row else None
+        return self._materialize_task(dict(row)) if row else None
 
     def list_tasks(
         self, username: str, *, limit: int, offset: int
@@ -462,7 +455,7 @@ class TranslationTaskStore:
                 """,
                 (username, limit, offset),
             ).fetchall()
-        return [dict(row) for row in rows]
+        return [self._materialize_task(dict(row)) for row in rows]
 
     def count_tasks(self, username: str) -> int:
         self._ensure_legacy_history_imported(username)
@@ -543,19 +536,65 @@ class TranslationTaskStore:
                 """,
                 (username,),
             ).fetchall()
-        return [dict(row) for row in rows]
+        return [self._materialize_task(dict(row)) for row in rows]
 
     def delete_task(self, task_id: str, username: str) -> dict[str, Any] | None:
-        task = self.get_task(task_id, username=username)
-        if task is None:
-            return None
         with self._managed_connection() as connection:
-            connection.execute(
-                "DELETE FROM translation_tasks "
+            row = connection.execute(
+                "SELECT * FROM translation_tasks "
                 "WHERE task_id = ? AND username = ? COLLATE NOCASE",
                 (task_id, username),
+            ).fetchone()
+            if row is None or row["status"] in ACTIVE_TASK_STATUSES:
+                return None
+            delete_result = connection.execute(
+                "DELETE FROM translation_tasks "
+                "WHERE task_id = ? AND username = ? COLLATE NOCASE "
+                "AND status NOT IN ('queued', 'processing')",
+                (task_id, username),
             )
-        return task
+            if delete_result.rowcount == 0:
+                return None
+        return self._materialize_task(dict(row))
+
+    def list_expired_terminal_tasks(
+        self, *, completed_before: datetime, limit: int = 100
+    ) -> list[dict[str, Any]]:
+        """List old terminal records whose owned files are ready for cleanup."""
+        if limit <= 0:
+            raise ValueError("limit must be greater than zero")
+        cutoff = completed_before.replace(tzinfo=None).isoformat()
+        with self._managed_connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT * FROM translation_tasks
+                WHERE status IN ('completed', 'failed', 'cancelled')
+                  AND completed_at IS NOT NULL
+                  AND completed_at < ?
+                ORDER BY completed_at ASC
+                LIMIT ?
+                """,
+                (cutoff, limit),
+            ).fetchall()
+        return [self._materialize_task(dict(row)) for row in rows]
+
+    def delete_expired_terminal_task(
+        self, task_id: str, *, completed_before: datetime
+    ) -> bool:
+        """Delete one expired record after its owned files were removed."""
+        cutoff = completed_before.replace(tzinfo=None).isoformat()
+        with self._managed_connection() as connection:
+            delete_result = connection.execute(
+                """
+                DELETE FROM translation_tasks
+                WHERE task_id = ?
+                  AND status IN ('completed', 'failed', 'cancelled')
+                  AND completed_at IS NOT NULL
+                  AND completed_at < ?
+                """,
+                (task_id, cutoff),
+            )
+            return delete_result.rowcount > 0
 
     def recover_interrupted_tasks(self) -> list[dict[str, Any]]:
         """Mark tasks that cannot resume after a process restart as failed."""
@@ -586,7 +625,7 @@ class TranslationTaskStore:
 
         recovered_tasks: list[dict[str, Any]] = []
         for row in rows:
-            task = dict(row)
+            task = self._materialize_task(dict(row))
             task.update(
                 {
                     "status": "failed",
@@ -600,23 +639,6 @@ class TranslationTaskStore:
             )
             recovered_tasks.append(task)
         return recovered_tasks
-
-    def synchronize_history(self, task: dict[str, Any]) -> None:
-        """Write the current task into the user's legacy JSON history."""
-        history_file = self._history_file(task["username"])
-        try:
-            TranslationHistoryFile(history_file).upsert(task)
-        except Exception as exc:
-            logger.error(
-                "Failed to synchronize history for task %s: %s", task["task_id"], exc
-            )
-
-    def remove_from_history(self, username: str, task_id: str) -> None:
-        history_file = self._history_file(username)
-        try:
-            TranslationHistoryFile(history_file).remove(task_id)
-        except Exception as exc:
-            logger.error("Failed to remove history item %s: %s", task_id, exc)
 
     def _history_file(self, username: str) -> Path:
         return self._user_dir(username) / "history.json"
@@ -646,7 +668,7 @@ class TranslationTaskStore:
             if user_exists is None:
                 return
             imported = connection.execute(
-                "SELECT 1 FROM translation_history_imports WHERE username = ?",
+                "SELECT status FROM translation_history_imports WHERE username = ?",
                 (username,),
             ).fetchone()
         if imported:
@@ -656,6 +678,20 @@ class TranslationTaskStore:
         try:
             history = history_file.read()
         except Exception as exc:
+            error_summary = str(exc)[:500]
+            with self._managed_connection() as connection:
+                connection.execute(
+                    """
+                    INSERT INTO translation_history_imports (
+                        username, imported_at, status, error_summary
+                    ) VALUES (?, ?, 'failed', ?)
+                    ON CONFLICT(username) DO UPDATE SET
+                        imported_at = excluded.imported_at,
+                        status = excluded.status,
+                        error_summary = excluded.error_summary
+                    """,
+                    (username, _utc_now().isoformat(), error_summary),
+                )
             logger.error("Failed to import legacy history for %s: %s", username, exc)
             return
 
@@ -705,8 +741,12 @@ class TranslationTaskStore:
                         file_id,
                         filename,
                         original_filename,
-                        str(input_path) if input_path else "",
-                        str(user_dir / "outputs" / task_id),
+                        self._storage_path(input_path, "input_path")
+                        if input_path
+                        else "",
+                        self._storage_path(
+                            user_dir / "outputs" / task_id, "output_dir"
+                        ),
                         status,
                         100 if status == "completed" else 0,
                         "Translation completed"
@@ -717,17 +757,28 @@ class TranslationTaskStore:
                         item.get("completed_at")
                         or (now if legacy_task_was_active else None),
                         str(error_message) if error_message else None,
-                        item.get("mono_path"),
-                        item.get("dual_path"),
+                        self._storage_path_or_empty(item.get("mono_path"), "mono_path"),
+                        self._storage_path_or_empty(item.get("dual_path"), "dual_path"),
                     ),
                 )
             connection.execute(
                 """
-                INSERT OR IGNORE INTO translation_history_imports (username, imported_at)
-                VALUES (?, ?)
+                INSERT INTO translation_history_imports (
+                    username, imported_at, status, error_summary
+                ) VALUES (?, ?, 'success', NULL)
+                ON CONFLICT(username) DO UPDATE SET
+                    imported_at = excluded.imported_at,
+                    status = excluded.status,
+                    error_summary = excluded.error_summary
                 """,
                 (username, now),
             )
+
+    def _storage_path_or_empty(self, value: object, field_name: str) -> str | None:
+        resolved_path = self._resolved_storage_path(value, field_name)
+        if resolved_path is None:
+            return None
+        return self._storage_path(resolved_path, field_name)
 
     @staticmethod
     def _find_uploaded_file(user_dir: Path, file_id: str) -> Path | None:

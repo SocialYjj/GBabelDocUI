@@ -1,50 +1,46 @@
-[**시작하기**](./getting-started.md) > **설치** > **WebUI** _(현재)_
+# GBabelDocUI Web UI 사용
 
----
+서비스는 브라우저를 자동으로 열지 않습니다. 시작한 뒤 로그인 페이지를 직접 여십시오.
 
-### Webui 를 통해 GBabelDocUI 사용하기
+## 요구 사항
 
-#### WebUI 페이지를 여는 방법:
+- Python 3.10–3.13
+- Git
+- [uv](https://docs.astral.sh/uv/)
 
-WebUI 인터페이스를 여는 방법에는 여러 가지가 있습니다. **Windows**를 사용 중이라면 [이 문서](./INSTALLATION_winexe.md) 를 참조하세요.
+## 저장소에서 실행
 
-1. Python 설치 (3.10 <= 버전 <= 3.12)
+```bash
+git clone https://github.com/SocialYjj/GBabelDocUI.git
+cd GBabelDocUI
+uv sync --frozen
+```
 
-2. 패키지 설치:
+로컬 HTTP에서는 쿠키의 Secure 속성을 비활성화합니다.
 
-3. 브라우저에서 사용 시작:
+=== "Linux/macOS"
 
     ```bash
-    gbabeldocui
+    export GBABELDOCUI_COOKIE_SECURE=false
+    uv run gbabeldocui
     ```
 
-4. 브라우저가 자동으로 시작되지 않은 경우 다음으로 이동:
+=== "Windows PowerShell"
 
-    ```bash
-    http://localhost:7860/
+    ```powershell
+    $env:GBABELDOCUI_COOKIE_SECURE = "false"
+    uv run gbabeldocui
     ```
 
-    PDF 파일을 창에 드롭하고 `Translate` 을 클릭하세요.
+시작 후 `http://127.0.0.1:7860/login.html`을 여십시오.
 
-5. docker 로 GBabelDocUI 를 배포하고 ollama 를 GBabelDocUI 의 백엔드 LLM 으로 사용하는 경우 "Ollama host"에 다음을 입력해야 합니다:
+## 첫 사용
 
-   ```bash
-   http://host.docker.internal:11434
-   ```
+1. 로컬 로그인 페이지에서 첫 관리자를 생성합니다.
+2. 설정에서 OpenAI, Azure OpenAI 또는 Google Gemini를 구성합니다.
+3. 언어, 출력, 페이지 범위 및 PDF 옵션을 선택합니다.
+4. PDF를 업로드하고 작업을 시작한 뒤 기록에서 결과를 내려받습니다.
 
-> **보안 안내:** Ollama는 서버 측 서비스이며 관리자만 사용할 수 있습니다. 비공개 엔드포인트 `http://host.docker.internal:11434`는 기본적으로 거부됩니다. 신뢰할 수 있는 배포에서만 컨테이너 환경에 `GBABELDOCUI_ALLOW_PRIVATE_ENDPOINTS=true`를 설정하세요. 이 설정은 SSRF 보호를 완화하므로 신뢰할 수 없는 사용자가 GBabelDocUI에 접근할 수 있는 경우 활성화하지 마세요.
+저장된 API 키는 서버에만 남습니다. `data/` 디렉터리를 커밋하거나 공개하지 마십시오.
 
-<!-- <img src="./../../images/gui.gif" width="500"/> -->
-<img src='./../../images/gui.gif' width="500"/>
-### Configure the translation
-
-Use the GBabelDocUI settings page to choose the translation service, source and target languages, PDF outputs, page range and advanced options. The selected settings are saved per user and are snapshotted when a task starts.
-
-When running the Docker container, keep `./data` mounted to `/app/data`. The default Compose deployment listens on `127.0.0.1:7860`; use an HTTPS reverse proxy for public access. The translation executor is designed for one application process and one shared data directory.
-## Preview## 미리보기
-
-<img src="./../../images/before.png" width="500"/>
-<img src="./../../images/after.png" width="500"/>
-
-<div align="right"> 
-<h6><small>이 페이지의 일부 내용은 GPT 에 의해 번역되었으며 오류가 포함될 수 있습니다.</small></h6>
+컨테이너에서는 Docker Compose 문서를 사용하십시오. 공개 배포에는 HTTPS와 데이터 디렉터리당 하나의 인스턴스가 필요합니다.

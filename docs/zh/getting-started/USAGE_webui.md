@@ -1,50 +1,56 @@
-[**开始使用**](./getting-started.md) > **如何安装** > **WebUI** _(当前)_
+[**开始使用**](./getting-started.md) > **使用** > **Web UI** _(当前)_
 
 ---
 
-### 通过 Webui 使用 GBabelDocUI
+# 使用 GBabelDocUI Web UI
 
-#### 如何打开 WebUI 页面：
+GBabelDocUI 启动后不会自动打开浏览器，需要手动访问登录页。
 
-有多种方法可以打开 WebUI 界面。如果您使用的是 **Windows**，请参考 [这篇文章](./INSTALLATION_winexe.md)；
+## 从仓库运行
 
-1. 已安装 Python（3.10 <= 版本 <= 3.12）
+需要 Python 3.10–3.13、Git 和 [`uv`](https://docs.astral.sh/uv/)。
 
-2. 安装我们的软件包：
+```bash
+git clone https://github.com/SocialYjj/GBabelDocUI.git
+cd GBabelDocUI
+uv sync --frozen
+```
 
-3. 在浏览器中开始使用：
+本机使用明文 HTTP 时，先关闭 Cookie 的 Secure 标志：
+
+=== "Linux 和 macOS"
 
     ```bash
-    gbabeldocui
+    export GBABELDOCUI_COOKIE_SECURE=false
+    uv run gbabeldocui
     ```
 
-4. 如果浏览器未自动启动，请访问
+=== "Windows PowerShell"
 
-    ```bash
-    http://localhost:7860/
+    ```powershell
+    $env:GBABELDOCUI_COOKIE_SECURE = "false"
+    uv run gbabeldocui
     ```
 
-    将 `PDF` 文件拖入窗口并点击 `Translate`。
+打开 `http://127.0.0.1:7860/login.html`。
 
-5. 如果您通过 docker 部署 GBabelDocUI，并使用 ollama 作为 GBabelDocUI 的后端 `LLM`，则应在 "Ollama host" 中填写
+## 首次使用
 
-   ```bash
-   http://host.docker.internal:11434
-   ```
+1. 从本机登录页创建首个管理员。
+2. 打开“设置”，配置 OpenAI、Azure OpenAI 或 Google Gemini。
+3. 选择源语言、目标语言、输出类型、页码范围和 PDF 高级选项。
+4. 打开“上传”，选择 PDF 并启动任务。
+5. 在任务和历史列表中查看进度，完成后下载单语或双语 PDF。
 
-> **安全提示：** Ollama 是服务器侧服务，仅管理员可使用。私有地址 `http://host.docker.internal:11434` 默认会被拒绝。只有在可信部署中，才在容器环境变量中设置 `GBABELDOCUI_ALLOW_PRIVATE_ENDPOINTS=true`。该设置会放宽 SSRF 防护；如果不可信用户可以访问 GBabelDocUI，不要启用它。
+已保存的 API 密钥只保留在服务端，不会返回给浏览器。`data/` 目录仍可能包含凭据、上传 PDF 和输出文件，禁止提交或公开。
 
-<!-- <img src="./../../images/gui.gif" width="500"/> -->
-<img src='./../../images/gui.gif' width="500"/>
-### Configure the translation
+## Docker 使用
 
-Use the GBabelDocUI settings page to choose the translation service, source and target languages, PDF outputs, page range and advanced options. The selected settings are saved per user and are snapshotted when a task starts.
+使用仓库提供的 [`docker-compose.yml`](./INSTALLATION_docker.md)。它将应用数据保存在 `./data`，将模型和字体缓存保存在命名卷中，并默认只监听 `127.0.0.1:7860`。
 
-When running the Docker container, keep `./data` mounted to `/app/data`. The default Compose deployment listens on `127.0.0.1:7860`; use an HTTPS reverse proxy for public access. The translation executor is designed for one application process and one shared data directory.
+公开访问时必须使用 HTTPS 反向代理，保持 `GBABELDOCUI_COOKIE_SECURE=true`，并确保每个数据目录只有一个应用进程和一个副本。
+
 ## 预览
 
-<img src="./../../images/before.png" width="500"/>
-<img src="./../../images/after.png" width="500"/>
-
-<div align="right"> 
-<h6><small>本页面的部分内容由 GPT 翻译，可能包含错误。</small></h6>
+<img src="./../../images/before.png" width="500" alt="翻译前的 PDF"/>
+<img src="./../../images/after.png" width="500" alt="翻译后的 PDF"/>

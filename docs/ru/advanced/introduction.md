@@ -1,18 +1,11 @@
-### Расширенные параметры
+> This locale currently uses the canonical English text to avoid publishing outdated translated instructions.
 
-Этот раздел предназначен для опытных пользователей данного программного обеспечения. Здесь вы можете найти:
+# Advanced settings
 
-1. [**Расширенные параметры**](./advanced.md)
-<br>
-В этом разделе вы можете указать исходный/целевой языки, переключить службы перевода и многое другое.
+GBabelDocUI exposes the supported BabelDOC options through the authenticated settings page.
 
-2. [**Код языка**](./Language-Codes.md)
-<br>
-Если вы не уверены, какие коды использовать для перевода исходного/целевого языка, вы можете найти их здесь.
+- [Web UI settings](./advanced.md)
+- [Translation services](./Documentation-of-Translation-Services.md)
+- [Language codes](./Language-Codes.md)
 
-3. [**Документация служб перевода**](./Documentation-of-Translation-Services.md)
-<br>
-Если вам нужно ознакомиться с документацией, предоставляемой используемыми службами перевода, обратитесь к этой странице.
-
-<div align="right"> 
-<h6><small>Часть содержимого этой страницы была переведена GPT и может содержать ошибки.</small></h6>
+The bundled runtime does not expose the upstream CLI, Gradio UI, HTTP API, or a stable public Python API.

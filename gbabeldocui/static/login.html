@@ -7,200 +7,89 @@
   <title>Login - GBabelDocUI</title>
   <link rel="stylesheet" href="/static/css/style.css">
   <script src="/static/js/i18n.js"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 
 <body>
-  <div class="page-wrapper flex flex-center">
-    <div class="container" style="max-width: 500px; width: 100%;">
-      <div class="glass-card fade-in" style="max-width: 100%;">
+  <main class="page-wrapper flex flex-center">
+    <div class="container auth-container">
+      <div class="glass-card fade-in">
         <div class="card-header text-center">
           <h1 class="logo mb-sm">GBabelDocUI</h1>
           <p class="card-subtitle" id="subtitle" data-i18n="login.welcome">Welcome back! Please login to continue.</p>
         </div>
 
         <div class="card-body">
-          <!-- Setup Form (shown only on first run) -->
-          <form id="setupForm" style="display: none;">
+          <form id="setup-form" hidden>
             <div class="alert alert-info mb-md">
               <strong data-i18n="login.setup.info">Initial Setup</strong><br>
               <span data-i18n="login.setup.desc">Create your admin account to get started.</span>
             </div>
 
             <div class="form-group">
-              <label class="form-label" for="setupUsername" data-i18n="login.username">Username</label>
-              <input type="text" id="setupUsername" class="form-input" placeholder="Enter username" required
-                minlength="3">
+              <label class="form-label" for="setup-username" data-i18n="login.username">Username</label>
+              <input type="text" id="setup-username" class="form-input" autocomplete="username"
+                placeholder="Enter username" required minlength="3" maxlength="64">
               <span class="form-help" data-i18n="login.username.min">At least 3 characters</span>
             </div>
 
             <div class="form-group">
-              <label class="form-label" for="setupPassword" data-i18n="login.password">Password</label>
-              <input type="password" id="setupPassword" class="form-input" placeholder="Enter password" required
-                minlength="6">
-              <span class="form-help" data-i18n="login.password.min">At least 6 characters</span>
+              <label class="form-label" for="setup-password" data-i18n="login.password">Password</label>
+              <input type="password" id="setup-password" class="form-input" autocomplete="new-password"
+                placeholder="Enter password" required minlength="6">
             </div>
 
             <div class="form-group">
-              <label class="form-label" for="setupPasswordConfirm" data-i18n="login.password.confirm">Confirm
-                Password</label>
-              <input type="password" id="setupPasswordConfirm" class="form-input" placeholder="Confirm password"
-                required>
+              <label class="form-label" for="setup-password-confirm" data-i18n="login.password.confirm">Confirm Password</label>
+              <input type="password" id="setup-password-confirm" class="form-input" autocomplete="new-password"
+                placeholder="Confirm password" required minlength="6">
             </div>
 
-            <div id="setupError" class="form-error" style="display: none;"></div>
+            <div class="form-group" id="setup-token-group" hidden>
+              <label class="form-label" for="setup-token">Setup token</label>
+              <input type="password" id="setup-token" class="form-input" autocomplete="off"
+                placeholder="GBABELDOCUI_SETUP_TOKEN">
+              <span class="form-help">Required when the first account is created remotely.</span>
+            </div>
 
+            <div id="setup-error" class="form-error" role="alert" hidden></div>
             <button type="submit" class="btn btn-primary btn-block btn-lg mt-md" data-i18n="login.btn.setup">
               Create Admin Account
             </button>
           </form>
 
-          <!-- Login Form -->
-          <form id="loginForm">
+          <form id="login-form" hidden>
             <div class="form-group">
               <label class="form-label" for="username" data-i18n="login.username">Username</label>
-              <input type="text" id="username" class="form-input" placeholder="Enter your username" required>
+              <input type="text" id="username" class="form-input" autocomplete="username"
+                placeholder="Enter your username" required maxlength="64">
             </div>
-
             <div class="form-group">
               <label class="form-label" for="password" data-i18n="login.password">Password</label>
-              <input type="password" id="password" class="form-input" placeholder="Enter your password" required>
+              <input type="password" id="password" class="form-input" autocomplete="current-password"
+                placeholder="Enter your password" required>
             </div>
-
-            <div id="loginError" class="form-error" style="display: none;"></div>
-
-            <button type="submit" class="btn btn-primary btn-block btn-lg mt-md" data-i18n="login.btn.login">
-              Login
-            </button>
+            <div id="login-error" class="form-error" role="alert" hidden></div>
+            <button type="submit" class="btn btn-primary btn-block btn-lg mt-md" data-i18n="login.btn.login">Login</button>
           </form>
         </div>
 
         <div class="card-footer text-center">
-          <p class="text-muted" id="registration-link" style="font-size: var(--font-size-sm); display: none;">
-            <a href="/register.html" class="text-primary" data-i18n="register.link.from_login">Don't have an account?
-              Register</a>
+          <p class="text-muted" id="registration-link" hidden>
+            <a href="/register.html" class="text-primary" data-i18n="register.link.from_login">Don't have an account? Register</a>
           </p>
-          <p class="text-muted" style="font-size: var(--font-size-sm);">
-            <span id="app-version">GBabelDocUI - Secure Multi-User System For CH</span>
+          <p class="text-muted" id="app-version">GBabelDocUI</p>
+          <p class="source-links">
+            <a href="https://github.com/SocialYjj/GBabelDocUI" rel="noopener noreferrer">Source code</a>
+            <a href="https://github.com/SocialYjj/GBabelDocUI/blob/main/LICENSE" rel="noopener noreferrer">AGPL-3.0</a>
           </p>
         </div>
       </div>
     </div>
-  </div>
+  </main>
 
   <script src="/static/js/api.js"></script>
   <script src="/static/js/auth.js"></script>
-  <script>
-    // Check if already authenticated
-    if (redirectIfAuthenticated()) {
-      // Will redirect, no need to continue
-    } else {
-      // Check if setup is required
-      checkSetupStatus();
-    }
-
-    async function checkSetupStatus() {
-      try {
-        const status = await api.checkAuthStatus();
-
-        // Update version display
-        if (status.version) {
-          document.getElementById('app-version').textContent = `GBabelDocUI v${status.version} - Secure Multi-User System for CH`;
-        }
-
-        if (status.setup_required) {
-          // Show setup form
-          document.getElementById('setupForm').style.display = 'block';
-          document.getElementById('loginForm').style.display = 'none';
-          document.getElementById('subtitle').textContent = 'First time setup - Create your admin account';
-        } else {
-          // Show login form
-          document.getElementById('setupForm').style.display = 'none';
-          document.getElementById('loginForm').style.display = 'block';
-
-          // Check if registration is enabled and show/hide registration link
-          try {
-            const regStatus = await api.checkRegistrationStatus();
-            if (regStatus.enabled) {
-              document.getElementById('registration-link').style.display = 'block';
-            }
-          } catch (error) {
-            console.error('Failed to check registration status:', error);
-            // Keep registration link hidden on error
-          }
-        }
-      } catch (error) {
-        console.error('Failed to check setup status:', error);
-        showError(error);
-      }
-    }
-
-    // Setup form submission
-    document.getElementById('setupForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-
-      const username = document.getElementById('setupUsername').value;
-      const password = document.getElementById('setupPassword').value;
-      const passwordConfirm = document.getElementById('setupPasswordConfirm').value;
-      const errorDiv = document.getElementById('setupError');
-
-      // Validate passwords match
-      if (password !== passwordConfirm) {
-        errorDiv.textContent = 'Passwords do not match';
-        errorDiv.style.display = 'block';
-        return;
-      }
-
-      errorDiv.style.display = 'none';
-      showLoading('Creating admin account...');
-
-      try {
-        const response = await api.setup(username, password);
-
-        if (response.success) {
-          hideLoading();
-          showSuccess('Admin account created successfully!');
-          setTimeout(() => {
-            window.location.href = '/upload.html';
-          }, 1000);
-        }
-      } catch (error) {
-        hideLoading();
-        errorDiv.textContent = error.message;
-        errorDiv.style.display = 'block';
-      }
-    });
-
-    // Login form submission
-    document.getElementById('loginForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-
-      const username = document.getElementById('username').value;
-      const password = document.getElementById('password').value;
-      const errorDiv = document.getElementById('loginError');
-
-      errorDiv.style.display = 'none';
-      showLoading('Logging in...');
-
-      try {
-        const response = await api.login(username, password);
-
-        if (response.success) {
-          hideLoading();
-          showSuccess('Login successful!');
-          setTimeout(() => {
-            window.location.href = '/upload.html';
-          }, 500);
-        }
-      } catch (error) {
-        hideLoading();
-        errorDiv.textContent = error.message;
-        errorDiv.style.display = 'block';
-      }
-    });
-  </script>
+  <script src="/static/js/login-page.js"></script>
 </body>
 
 </html>

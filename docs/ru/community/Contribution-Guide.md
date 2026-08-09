@@ -1,11 +1,11 @@
 # Contributing to GBabelDocUI
 
-GBabelDocUI is a multi-user Web UI adaptation layer based on the official `pdf2zh-next` runtime. Contributions that improve authentication, user isolation, task handling, translation settings, PDF output, documentation and deployment are welcome.
+GBabelDocUI is a multi-user Web UI that bundles a verified runtime subset from `pdf2zh-next 2.9.0`. Contributions that improve authentication, user isolation, task handling, translation settings, PDF output, documentation and deployment are welcome.
 
 ## Before opening a pull request
 
 1. Read [NOTICE](https://github.com/SocialYjj/GBabelDocUI/blob/main/NOTICE) and keep the upstream licenses and copyright notices intact.
-2. Do not include `data/`, `yuan/`, `.env` files, API keys, databases, uploaded PDFs, generated outputs or local caches.
+2. Do not include `data/`, `.env` files, API keys, databases, uploaded PDFs, generated outputs or local caches.
 3. Keep the single-process execution model: do not introduce multiple workers or replicas that share one `data/` directory.
 4. For a significant behavior or dependency change, open an issue first and describe the migration or operational impact.
 

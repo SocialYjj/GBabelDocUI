@@ -1,61 +1,50 @@
-[**快速開始**](./getting-started.md) > **如何安裝** > **uv** _(目前頁面)_
+[**開始使用**](./getting-started.md) > **安裝** > **uv** _(目前頁面)_
 
 ---
 
-> **說明：** 本頁介紹官方 `pdf2zh-next` 的 `uv` 安裝方式，僅作為命令行執行時參考，不是 GBabelDocUI 主 Web UI 的安裝方式。GBabelDocUI 的主入口是 `gbabeldocui`、`/login.html` 或根目錄的 Docker Compose；兩者參數不相容。
+# 使用 uv 安裝 GBabelDocUI
 
-### 透過 uv 安裝 PDFMathTranslate
+本頁安裝的是 GBabelDocUI。專案已內建所需且經過校驗的 `pdf2zh-next 2.9.0` 執行時子集，不要另外安裝或使用上游 `pdf2zh_next` 命令取代 `gbabeldocui`。
 
-#### 什麼是 uv？如何安裝它？
+## 環境需求
 
-uv 是一個極快的 Python 套件和專案管理器，使用 Rust 編寫。  
-<br>  
-要在您的電腦上安裝 uv，請參考 [這篇文章](https://docs.astral.sh/uv/getting-started/installation/)。
+- Python 3.10–3.13
+- Git
+- [`uv`](https://docs.astral.sh/uv/getting-started/installation/)
 
----
+## 安裝並執行
 
-#### 如何安裝
+```bash
+git clone https://github.com/SocialYjj/GBabelDocUI.git
+cd GBabelDocUI
+uv sync --frozen
+```
 
-1. 已安裝 Python（3.10 <= 版本 <= 3.12）；
+本機使用明文 HTTP 時：
 
-2. 使用以下命令來使用我們的套件：
+=== "Linux 與 macOS"
 
     ```bash
-    pip install uv
-    uv tool install --python 3.12 pdf2zh-next
+    export GBABELDOCUI_COOKIE_SECURE=false
+    uv run gbabeldocui
     ```
 
-安裝完成後，您可以透過 **命令行** 或 **WebUI** 開始翻譯。
+=== "Windows PowerShell"
 
-!!! Warning
+    ```powershell
+    $env:GBABELDOCUI_COOKIE_SECURE = "false"
+    uv run gbabeldocui
+    ```
 
-    如果在運行時看到錯誤 `command not found: pdf2zh_next`，請按照以下方式配置環境變量後重試：
+開啟 `http://127.0.0.1:7860/login.html`。
 
-    === "macOS 和 Linux"
+公開部署時保持 `GBABELDOCUI_COOKIE_SECURE=true`，使用 HTTPS 反向代理，並確保每個資料目錄只執行一個程序與一個副本。
 
-        將以下內容添加到您的 ~/.zshrc 文件中：
+## 開發環境
 
-        ```console
-        export PATH="$PATH:/Users/Username/.local/bin"
-        ```
-
-        然後重新啟動終端
-
-    === "Windows"
-
-        在 PowerShell 中輸入以下內容：
-
-        ```powershell
-        $env:Path = "C:\Users\Username\.local\bin;$env:Path"
-        ```
-
-        然後重新啟動終端
-
-> [!NOTE]
-> 如果在使用 WebUI 時遇到任何問題，請參考 [如何使用 --> WebUI](./USAGE_webui.md)。
-
-> [!NOTE]
-> 如果在使用 命令行 時遇到任何問題，請參考 [如何使用 --> 命令行](./USAGE_commandline.md)。
-
-<div align="right"> 
-<h6><small>Some content on this page has been translated by GPT and may contain errors.</small></h6>
+```bash
+uv sync --dev --frozen
+uv run pytest -q
+uv run ruff check gbabeldocui tests
+uv run ruff format --check gbabeldocui tests
+```

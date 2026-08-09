@@ -1,258 +1,225 @@
 /**
- * Authentication utilities
- * Handles login state and redirects
+ * Browser authentication state backed by the server-side session cookie.
  */
 
-/**
- * Check if user is authenticated
- */
-function isAuthenticated() {
-    return !!localStorage.getItem('auth_token');
-}
+let authenticatedUser = null;
+let currentUserRequest = null;
 
-/**
- * Get current user info
- */
-function getCurrentUser() {
-    const userInfo = localStorage.getItem('user_info');
-    if (!userInfo) return null;
-    try {
-        return JSON.parse(userInfo);
-    } catch (error) {
-        localStorage.removeItem('user_info');
-        return null;
+window.addEventListener('auth:unauthorized', () => {
+    authenticatedUser = null;
+    currentUserRequest = null;
+});
+
+async function loadCurrentUser(forceRefresh = false) {
+    if (authenticatedUser && !forceRefresh) {
+        return authenticatedUser;
     }
+    if (currentUserRequest && !forceRefresh) {
+        return currentUserRequest;
+    }
+
+    currentUserRequest = api.getCurrentUser()
+        .then(userResponse => {
+            authenticatedUser = {
+                username: userResponse.username,
+                is_admin: Boolean(userResponse.is_admin),
+            };
+            return authenticatedUser;
+        })
+        .catch(() => {
+            authenticatedUser = null;
+            return null;
+        })
+        .finally(() => {
+            currentUserRequest = null;
+        });
+    return currentUserRequest;
 }
 
-/**
- * Require authentication (redirect to login if not authenticated)
- */
-function requireAuth() {
-    if (!isAuthenticated()) {
-        window.location.href = '/login.html';
+function getCurrentUser() {
+    return authenticatedUser;
+}
+
+async function isAuthenticated() {
+    return Boolean(await loadCurrentUser());
+}
+
+async function requireAuth() {
+    const currentUser = await loadCurrentUser();
+    if (!currentUser) {
+        window.location.assign('/login.html');
         return false;
     }
     return true;
 }
 
-/**
- * Redirect to main app if already authenticated
- */
-function redirectIfAuthenticated() {
-    if (isAuthenticated()) {
-        window.location.href = '/upload.html';
+async function redirectIfAuthenticated() {
+    if (await isAuthenticated()) {
+        window.location.assign('/upload.html');
         return true;
     }
     return false;
 }
 
-/**
- * Show/hide elements based on admin status
- */
 function updateAdminUI() {
-    const user = getCurrentUser();
-    const isAdmin = user && user.is_admin;
-
-    document.querySelectorAll('[data-admin-only]').forEach(el => {
-        el.style.display = isAdmin ? '' : 'none';
+    const currentUser = getCurrentUser();
+    const isAdmin = Boolean(currentUser && currentUser.is_admin);
+    document.querySelectorAll('[data-admin-only]').forEach(adminElement => {
+        adminElement.style.display = isAdmin ? '' : 'none';
     });
 }
 
-/**
- * Display user info in UI
- */
 function displayUserInfo() {
-    const user = getCurrentUser();
-    if (!user) return;
-
-    const usernameElements = document.querySelectorAll('[data-username]');
-    usernameElements.forEach(el => {
-        el.textContent = user.username;
+    const currentUser = getCurrentUser();
+    if (!currentUser) {
+        return;
+    }
+    document.querySelectorAll('[data-username]').forEach(usernameElement => {
+        usernameElement.textContent = currentUser.username;
     });
-
     updateAdminUI();
 }
 
-/**
- * Show loading overlay
- */
 function showLoading(message = 'Loading...') {
-    let overlay = document.getElementById('loading-overlay');
+    let loadingOverlay = document.getElementById('loading-overlay');
+    if (!loadingOverlay) {
+        loadingOverlay = document.createElement('div');
+        loadingOverlay.id = 'loading-overlay';
+        loadingOverlay.className = 'loading-overlay';
 
-    if (!overlay) {
-        // Create overlay if it doesn't exist (for pages without static overlay)
-        overlay = document.createElement('div');
-        overlay.id = 'loading-overlay';
-        overlay.className = 'loading-overlay';
-        overlay.innerHTML = `
-    <div class="loading-content">
-      <div class="spinner"></div>
-      <div class="loading-text">${message}</div>
-    </div>
-  `;
-        document.body.appendChild(overlay);
-    } else {
-        // Update message in existing overlay
-        const textEl = overlay.querySelector('.loading-text');
-        if (textEl) {
-            textEl.textContent = message;
-        }
+        const loadingContent = document.createElement('div');
+        loadingContent.className = 'loading-content';
+        const spinner = document.createElement('div');
+        spinner.className = 'spinner';
+        spinner.setAttribute('aria-hidden', 'true');
+        const loadingText = document.createElement('div');
+        loadingText.className = 'loading-text';
+        loadingContent.append(spinner, loadingText);
+        loadingOverlay.appendChild(loadingContent);
+        document.body.appendChild(loadingOverlay);
     }
 
-    overlay.style.display = 'flex';
+    const loadingText = loadingOverlay.querySelector('.loading-text');
+    if (loadingText) {
+        loadingText.textContent = message;
+    }
+    loadingOverlay.setAttribute('role', 'status');
+    loadingOverlay.setAttribute('aria-live', 'polite');
+    loadingOverlay.hidden = false;
 }
 
-/**
- * Hide loading overlay
- */
 function hideLoading() {
-    const overlay = document.getElementById('loading-overlay');
-    if (overlay) {
-        overlay.style.display = 'none';
+    const loadingOverlay = document.getElementById('loading-overlay');
+    if (loadingOverlay) {
+        loadingOverlay.hidden = true;
     }
 }
 
-/**
- * Show alert message - fixed position overlay that doesn't push content
- */
 function showAlert(message, type = 'info') {
-    // Create alert container if not exists
     let alertContainer = document.getElementById('alert-container');
     if (!alertContainer) {
         alertContainer = document.createElement('div');
         alertContainer.id = 'alert-container';
-        alertContainer.style.cssText = `
-            position: fixed;
-            top: 80px;
-            right: 20px;
-            z-index: 9999;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            max-width: 400px;
-            pointer-events: none;
-        `;
+        alertContainer.className = 'alert-container';
+        alertContainer.setAttribute('aria-live', 'polite');
         document.body.appendChild(alertContainer);
     }
 
-    const alertDiv = document.createElement('div');
-    alertDiv.className = `alert alert-${type} fade-in`;
-    alertDiv.style.cssText = `
-        pointer-events: auto;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        animation: slideIn 0.3s ease;
-    `;
-    alertDiv.textContent = message;
+    const alertMessage = document.createElement('div');
+    alertMessage.className = `alert alert-${type} fade-in`;
+    alertMessage.textContent = String(message);
+    alertMessage.setAttribute('role', type === 'error' ? 'alert' : 'status');
+    alertContainer.appendChild(alertMessage);
 
-    alertContainer.appendChild(alertDiv);
-
-    setTimeout(() => {
-        alertDiv.style.opacity = '0';
-        alertDiv.style.transform = 'translateX(20px)';
-        alertDiv.style.transition = 'all 0.3s ease';
-        setTimeout(() => alertDiv.remove(), 300);
+    window.setTimeout(() => {
+        alertMessage.classList.add('fade-out');
+        window.setTimeout(() => alertMessage.remove(), 300);
     }, 3000);
 }
 
-/**
- * Show error message
- */
 function showError(error) {
-    const message = error.message || error.detail || 'An error occurred';
-    showAlert(message, 'error');
+    const errorMessage = error && (error.message || error.detail)
+        ? error.message || error.detail
+        : 'An error occurred';
+    showAlert(errorMessage, 'error');
 }
 
-/**
- * Show success message
- */
 function showSuccess(message) {
     showAlert(message, 'success');
 }
 
-/**
- * Format file size
- */
 function formatFileSize(bytes) {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+    if (!Number.isFinite(bytes) || bytes <= 0) {
+        return '0 Bytes';
+    }
+    const units = ['Bytes', 'KB', 'MB', 'GB'];
+    const unitIndex = Math.min(
+        units.length - 1,
+        Math.floor(Math.log(bytes) / Math.log(1024)),
+    );
+    const normalizedSize = bytes / (1024 ** unitIndex);
+    return `${Math.round(normalizedSize * 100) / 100} ${units[unitIndex]}`;
 }
 
-/**
- * Format date
- */
 function formatDate(dateString) {
-    if (!dateString) return '';
-
-    // The API keeps legacy timestamps as naive UTC ISO strings. Tell the
-    // browser to interpret those values as UTC before converting to local time.
+    if (!dateString) {
+        return '';
+    }
     const normalizedDateString = typeof dateString === 'string'
         && !/(?:Z|[+-]\d{2}:?\d{2})$/i.test(dateString)
         ? `${dateString}Z`
         : dateString;
-    const date = new Date(normalizedDateString);
-    return Number.isNaN(date.getTime()) ? String(dateString) : date.toLocaleString();
+    const dateValue = new Date(normalizedDateString);
+    return Number.isNaN(dateValue.getTime())
+        ? String(dateString)
+        : dateValue.toLocaleString();
 }
 
-/**
- * Debounce function
- */
-function debounce(func, wait) {
-    let timeout;
-    return function executedFunction(...args) {
-        const later = () => {
-            clearTimeout(timeout);
-            func(...args);
-        };
-        clearTimeout(timeout);
-        timeout = setTimeout(later, wait);
+function debounce(callback, waitMs) {
+    let timeoutIdentifier;
+    return function debouncedCallback(...callbackArguments) {
+        window.clearTimeout(timeoutIdentifier);
+        timeoutIdentifier = window.setTimeout(
+            () => callback(...callbackArguments),
+            waitMs,
+        );
     };
 }
 
-/**
- * Logout current user
- */
 async function logout() {
+    showLoading('Logging out...');
     try {
-        showLoading('Logging out...');
         await api.logout();
-        localStorage.removeItem('auth_token');
-        localStorage.removeItem('user_info');
+    } catch (_logoutError) {
+        // The browser session is treated as ended even if the server is unavailable.
+    } finally {
+        authenticatedUser = null;
+        currentUserRequest = null;
         hideLoading();
-        window.location.href = '/login.html';
-    } catch (error) {
-        hideLoading();
-        console.error('Logout error:', error);
-        // Force logout even if API call fails
-        localStorage.removeItem('auth_token');
-        localStorage.removeItem('user_info');
-        window.location.href = '/login.html';
+        window.location.assign('/login.html');
     }
 }
 
-/**
- * Update user info display in navigation
- */
 async function updateUserInfo() {
-    const user = getCurrentUser();
-    if (!user) return null;
-
-    const userInfoEl = document.getElementById('user-info');
-    if (userInfoEl) {
-        userInfoEl.textContent = user.username;
+    const currentUser = await loadCurrentUser();
+    if (!currentUser) {
+        return null;
     }
 
-    // Bind logout button
-    const logoutBtn = document.getElementById('logout-btn');
-    if (logoutBtn) {
-        logoutBtn.addEventListener('click', (e) => {
-            e.preventDefault();
+    const userInfoElement = document.getElementById('user-info');
+    if (userInfoElement) {
+        userInfoElement.textContent = currentUser.username;
+    }
+    displayUserInfo();
+
+    const logoutButton = document.getElementById('logout-btn');
+    if (logoutButton && logoutButton.dataset.logoutBound !== 'true') {
+        logoutButton.dataset.logoutBound = 'true';
+        logoutButton.addEventListener('click', logoutEvent => {
+            logoutEvent.preventDefault();
             logout();
         });
     }
 
-    updateAdminUI();
-    return user;
+    return currentUser;
 }

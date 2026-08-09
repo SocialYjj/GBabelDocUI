@@ -1,57 +1,46 @@
-[**Iniziare**](./getting-started.md) > **Installazione** > **Docker** _(current)_
+# Installare GBabelDocUI con Docker Compose
 
----
+Sono richiesti Docker Engine con Compose v2 e Git. La configurazione del repository include i mount e i limiti di sicurezza necessari.
 
-### Installa GBabelDocUI tramite docker
-
-#### Cos'è Docker?
-
-[Docker](https://docs.docker.com/get-started/docker-overview/) è una piattaforma open per lo sviluppo, la spedizione e l'esecuzione di applicazioni. Docker ti consente di separare le tue applicazioni dalla tua infrastruttura in modo da poter fornire software rapidamente. Con Docker, puoi gestire la tua infrastruttura nello stesso modo in cui gestisci le tue applicazioni. Sfruttando le metodologie di Docker per la spedizione, il test e la distribuzione del codice, puoi ridurre significativamente il ritardo tra la scrittura del codice e la sua esecuzione in produzione.
-
-#### Installazione
-
-<h4>1. Start the application with the repository Compose file:</h4>
+## Avvio locale
 
 ```bash
+git clone https://github.com/SocialYjj/GBabelDocUI.git
+cd GBabelDocUI
+```
+
+Su Linux preparare la directory dati affinché UID/GID 10001 possa scrivere:
+
+```bash
+mkdir -p data
+sudo chown -R 10001:10001 data
 docker compose up -d --build
 ```
 
-> [!NOTE]
->
-> The Compose file persists `./data` for accounts, settings, uploads and outputs. The default port binding is `127.0.0.1:7860`; put the service behind an HTTPS reverse proxy before exposing it publicly.
->
-> After the first successful GitHub Actions publish, you can use the amd64 GHCR image instead:
->
-> ```bash
-> docker pull ghcr.io/socialyjj/gbabeldocui:latest
-> docker run -d --name gbabeldocui --restart unless-stopped -p 127.0.0.1:7860:7860 -v "$(pwd)/data:/app/data" ghcr.io/socialyjj/gbabeldocui:latest
-> ```
-<h4>2. Inserisci questo URL nel tuo browser predefinito per aprire la pagina WebUI:</h4>
+Aprire quindi `http://127.0.0.1:7860/login.html`.
 
-```
-http://localhost:7860/
+## Pubblicare tramite HTTPS
+
+Configurare prima un reverse proxy HTTPS e avviare Compose almeno con:
+
+```bash
+export GBABELDOCUI_COOKIE_SECURE=true
+export GBABELDOCUI_SETUP_TOKEN='replace-with-a-long-random-one-time-value'
+docker compose up -d --build
 ```
 
-> [!NOTE]
-> Se riscontri problemi durante l'utilizzo di WebUI, consulta [Utilizzo --> WebUI](./USAGE_webui.md).
+Usare il token di configurazione solo per creare da remoto il primo amministratore. Rimuoverlo e riavviare il servizio subito dopo.
 
-> [!NOTE]
-> Se riscontri problemi durante l'utilizzo della riga di comando, consulta [Utilizzo --> Riga di comando](./USAGE_commandline.md).
-<!-- 
-#### For docker deployment on cloud service:
+Non scalare il servizio e non usare più worker Uvicorn con la stessa directory dati.
 
-<div>
-<a href="https://www.heroku.com/deploy?template=https://github.com/GBabelDocUI/GBabelDocUI-next">
-  <img src="https://www.herokucdn.com/deploy/button.svg" alt="Deploy" height="26"></a>
-<a href="https://render.com/deploy">
-  <img src="https://render.com/images/deploy-to-render-button.svg" alt="Deploy to Koyeb" height="26"></a>
-<a href="https://zeabur.com/templates/5FQIGX?referralCode=reycn">
-  <img src="https://zeabur.com/button.svg" alt="Deploy on Zeabur" height="26"></a>
-<a href="https://app.koyeb.com/deploy?type=git&builder=buildpack&repository=github.com/GBabelDocUI/GBabelDocUI-next&branch=main&name=pdf-math-translate">
-  <img src="https://www.koyeb.com/static/images/deploy/button.svg" alt="Deploy to Koyeb" height="26"></a>
-</div>
+## Dati persistenti
 
--->
+- `./data:/app/data`: accounts, settings, tasks, uploads, and outputs.
+- `babeldoc-cache:/cache`: BabelDOC models and font caches.
+- `/tmp`: bounded temporary filesystem.
 
-<div align="right"> 
-<h6><small>Parte del contenuto di questa pagina è stata tradotta da GPT e potrebbe contenere errori.</small></h6>
+```bash
+docker compose ps
+docker compose logs --tail 200 gbabeldocui
+docker compose down
+```

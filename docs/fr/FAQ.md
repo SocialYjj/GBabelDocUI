@@ -1,64 +1,39 @@
-Certaines questions sont fréquemment posées, nous avons donc fourni une liste pour les utilisateurs qui rencontrent des problèmes similaires.
+> This locale currently uses the canonical English text to avoid publishing outdated translated instructions.
 
-## Un GPU est-il nécessaire ?
-- **Question**:  
-- **Question**:
-Le programme utilise l'intelligence artificielle pour reconnaître et extraire des documents, un GPU est-il nécessaire ?
+# Frequently asked questions
 
-- **Réponse** :
-**Un GPU n'est pas nécessaire.** Mais si vous avez un GPU, le programme l'utilisera automatiquement pour une meilleure performance.
+## Why did the browser not open automatically?
 
-## Téléchargement interrompu ?
-- **Question**:  
-- **Question**:
-J'ai rencontré l'erreur d'interruption suivante lors du téléchargement du modèle. Que dois-je faire ?
+`gbabeldocui` starts the server but does not launch a browser. Open `http://127.0.0.1:7860/login.html` manually.
 
-  ![image](https://github.com/user-attachments/assets/3c4eed44-3d9b-4e2f-a224-a58edca718c2)
+## Why does local HTTP return to the login page?
 
-- **Réponse** :
-Le réseau subit des interférences, veuillez utiliser une connexion réseau stable ou essayer de contourner l'intervention du réseau.
+Secure cookies are enabled by default. For loopback HTTP only, set `GBABELDOCUI_COOKIE_SECURE=false` before starting the service. Public deployments must use HTTPS and keep the value `true`.
 
-## Comment mettre à jour vers la dernière version ?
-- **Question**:  
-- **Question**:
-Je souhaite utiliser certaines fonctionnalités de la dernière version, comment puis-je la mettre à jour ?
+## Why can I not create the first administrator remotely?
 
-- **Réponse** :
-`pip install -U pdf2zh`
+Local setup is the default security boundary. For a trusted remote initialization, set a one-time high-entropy `GBABELDOCUI_SETUP_TOKEN`, complete setup, then remove the variable and restart the service.
 
+## Can several workers or containers share one data directory?
 
-## Les fichiers suivants n'existent pas : example.pdf
-- **Problème** :
-Lors de l'exécution du programme, les utilisateurs auront les sorties suivantes : `The following files do not exist: example.pdf` si le document n'a pas été trouvé.
+No. The application intentionally allows one process and one replica per `data/` directory. A second instance fails fast instead of corrupting task state.
 
-- **Solution** :
-  - Ouvrez la ligne de commande dans le répertoire où se trouve le fichier, ou
-  - Entrez le chemin complet du fichier directement après pdf2zh, ou
-  - Utilisez le mode interactif `pdf2zh -i` pour glisser-déposer les fichiers directement
+## What happens after a restart?
 
+Task state and history are stored in SQLite. Incomplete tasks are reconciled during startup; completed, failed, and cancelled records follow the configured retention policy.
 
-## Erreur SSL et autres problèmes réseau
-- **Problème** :
-Lors du téléchargement des modèles de hugging face, les utilisateurs en Chine peuvent rencontrer des erreurs réseau. Par exemple, dans [issue #55](https://github.com/PDFMathTranslate/PDFMathTranslate-next/issues/55), [#70](https://github.com/PDFMathTranslate/PDFMathTranslate-next/issues/70).
+## Why is an API-key field empty after reloading settings?
 
-- **Solution** :
-  - [Contourner le GFW](https://github.com/clash-verge-rev/clash-verge-rev).
-  - [Utiliser le miroir Hugging Face](https://hf-mirror.com/).
-  - [Utiliser la version portable](https://github.com/PDFMathTranslate/PDFMathTranslate-next?tab=readme-ov-file#method-ii-portable).
-  - [Utiliser Docker à la place](https://github.com/PDFMathTranslate/PDFMathTranslate-next#docker).
-  - [Mettre à jour les certificats](https://stackoverflow.com/questions/51925384/unable-to-get-local-issuer-certificate-when-using-requests), comme suggéré dans [issue #55](https://github.com/PDFMathTranslate/PDFMathTranslate-next/issues/55).
+Saved keys are never returned to the browser. Leave the field empty to keep the existing key, or enter a new value to replace it.
 
-## Localhost n'est pas accessible
-Veuillez voir ci-dessous.
+## Where are uploads and results stored?
 
-## Erreur lors du lancement de l'interface graphique avec 0.0.0.0
-- **Problème** :
-L'utilisation d'un logiciel proxy en mode global peut empêcher Gradio de démarrer correctement. Par exemple, dans [issue #77](https://github.com/PDFMathTranslate/PDFMathTranslate-next/issues/77).
+They are stored under the configured `GBABELDOCUI_DATA_DIR`, normally `data/users/<username>/`. This directory can contain credentials and private documents and must not be committed or published.
 
-- **Solution** :
-Utiliser le mode règle
+## How do I update?
 
-  ![image](https://github.com/user-attachments/assets/b1f2b16a-eb6a-4c03-995c-332ef1d82c96)
+For a source installation, use `git pull --ff-only`, then `uv sync --frozen`. For Compose, pull the source update and run `docker compose up -d --build`. Back up the protected data directory while the service is stopped before a major operational change.
 
-<div align="right"> 
-<h6><small>Une partie du contenu de cette page a été traduite par GPT et peut contenir des erreurs.</small></h6>
+## Why was an upload rejected with HTTP 413?
+
+The request exceeded `GBABELDOCUI_MAX_UPLOAD_BYTES` or the streaming request-body limit. Raising the limit also increases storage and processing exposure; keep it bounded for public deployments.

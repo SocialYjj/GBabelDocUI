@@ -1,50 +1,46 @@
-[**Начало работы**](./getting-started.md) > **Установка** > **WebUI** _(текущая)_
+# Использование веб-интерфейса GBabelDocUI
 
----
+Сервис не открывает браузер автоматически. Запустите его и вручную откройте страницу входа.
 
-### Использование GBabelDocUI через Webui
+## Требования
 
-#### Как открыть страницу WebUI:
+- Python 3.10–3.13
+- Git
+- [uv](https://docs.astral.sh/uv/)
 
-Существует несколько способов открытия интерфейса WebUI. Если вы используете **Windows**, обратитесь к [этой статье](./INSTALLATION_winexe.md);
+## Запуск из репозитория
 
-1. Установленный Python (версия от 3.10 до 3.12)
+```bash
+git clone https://github.com/SocialYjj/GBabelDocUI.git
+cd GBabelDocUI
+uv sync --frozen
+```
 
-2. Установите наш пакет:
+Для локального HTTP отключите атрибут Secure у cookie:
 
-3. Начните использование в браузере:
+=== "Linux/macOS"
 
     ```bash
-    gbabeldocui
+    export GBABELDOCUI_COOKIE_SECURE=false
+    uv run gbabeldocui
     ```
 
-4. Если ваш браузер не запустился автоматически, перейдите по адресу:
+=== "Windows PowerShell"
 
-    ```bash
-    http://localhost:7860/
+    ```powershell
+    $env:GBABELDOCUI_COOKIE_SECURE = "false"
+    uv run gbabeldocui
     ```
 
-    Перетащите `PDF` файл в окно и нажмите `Translate`.
+После запуска откройте `http://127.0.0.1:7860/login.html`.
 
-5. Если вы развертываете GBabelDocUI с помощью docker и используете ollama в качестве бэкенд LLM для GBabelDocUI, вам следует указать "Ollama host" как:
+## Первое использование
 
-   ```bash
-   http://host.docker.internal:11434
-   ```
+1. Создайте первого администратора на локальной странице входа.
+2. Настройте OpenAI, Azure OpenAI или Google Gemini.
+3. Выберите языки, тип результата, страницы и параметры PDF.
+4. Загрузите PDF, запустите задание и скачайте результат из истории.
 
-> **Примечание по безопасности:** Ollama — серверная служба, доступная только администраторам. Частная конечная точка `http://host.docker.internal:11434` по умолчанию отклоняется. Устанавливайте `GBABELDOCUI_ALLOW_PRIVATE_ENDPOINTS=true` в окружении контейнера только при доверенном развертывании. Эта настройка ослабляет защиту от SSRF; не включайте ее, если к GBabelDocUI могут обращаться ненадежные пользователи.
+Сохраненные ключи API остаются на сервере. Не добавляйте каталог `data/` в Git и не публикуйте его.
 
-<!-- <img src="./../../images/gui.gif" width="500"/> -->
-<img src='./../../images/gui.gif' width="500"/>
-### Configure the translation
-
-Use the GBabelDocUI settings page to choose the translation service, source and target languages, PDF outputs, page range and advanced options. The selected settings are saved per user and are snapshotted when a task starts.
-
-When running the Docker container, keep `./data` mounted to `/app/data`. The default Compose deployment listens on `127.0.0.1:7860`; use an HTTPS reverse proxy for public access. The translation executor is designed for one application process and one shared data directory.
-## Предпросмотр
-
-<img src="./../../images/before.png" width="500"/>
-<img src="./../../images/after.png" width="500"/>
-
-<div align="right"> 
-<h6><small>Часть содержимого этой страницы была переведена GPT и может содержать ошибки.</small></h6>
+Для контейнеров используйте инструкцию Docker Compose. Публичное развертывание требует HTTPS и одну копию на каталог данных.

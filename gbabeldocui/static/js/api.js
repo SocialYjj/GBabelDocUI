@@ -1,62 +1,118 @@
 /**
- * API Client for PDFMathTranslate Web UI
- * Handles all HTTP requests to the backend API
+ * Same-origin API client for GBabelDocUI.
+ * Authentication is carried only by the HttpOnly session cookie.
  */
 
 const API_BASE_URL = window.location.origin;
+const CSRF_COOKIE_NAME = 'gbabeldocui_csrf';
+const CSRF_HEADER_NAME = 'X-CSRF-Token';
+const DEFAULT_REQUEST_TIMEOUT_MS = 30000;
+const DEFAULT_UPLOAD_TIMEOUT_MS = 10 * 60 * 1000;
 
 class APIClient {
-  constructor() {
-    this.token = localStorage.getItem('auth_token');
-  }
-
-  /**
-   * Get authorization headers
-   */
-  getHeaders() {
-    const headers = {
-      'Content-Type': 'application/json',
-    };
-
-    if (this.token) {
-      headers['Authorization'] = `Bearer ${this.token}`;
+  getCookie(cookieName) {
+    const encodedName = `${encodeURIComponent(cookieName)}=`;
+    const cookieParts = document.cookie ? document.cookie.split(';') : [];
+    for (const rawCookiePart of cookieParts) {
+      const cookiePart = rawCookiePart.trim();
+      if (cookiePart.startsWith(encodedName)) {
+        return decodeURIComponent(cookiePart.slice(encodedName.length));
+      }
     }
-
-    return headers;
+    return '';
   }
 
-  /**
-   * Make an API request
-   */
-  async request(endpoint, options = {}) {
-    const url = `${API_BASE_URL}${endpoint}`;
-    const config = {
-      ...options,
-      headers: {
-        ...this.getHeaders(),
-        ...options.headers,
+  csrfToken() {
+    return this.getCookie(CSRF_COOKIE_NAME);
+  }
+
+  isMutatingMethod(method) {
+    return ['POST', 'PUT', 'PATCH', 'DELETE'].includes(String(method).toUpperCase());
+  }
+
+  requestHeaders(method, body, additionalHeaders = {}) {
+    const requestHeaders = { ...additionalHeaders };
+    if (body !== undefined && body !== null && !(body instanceof FormData)
+      && !Object.keys(requestHeaders).some(name => name.toLowerCase() === 'content-type')) {
+      requestHeaders['Content-Type'] = 'application/json';
+    }
+    if (this.isMutatingMethod(method)) {
+      const csrfToken = this.csrfToken();
+      if (!csrfToken) {
+        throw new Error('请求验证信息尚未初始化，请刷新页面后重试');
+      }
+      requestHeaders[CSRF_HEADER_NAME] = csrfToken;
+    }
+    return requestHeaders;
+  }
+
+  createAbortController(externalSignal, timeoutMs) {
+    const requestController = new AbortController();
+    let externalAbortListener = null;
+    if (externalSignal) {
+      if (externalSignal.aborted) {
+        requestController.abort(externalSignal.reason);
+      } else {
+        externalAbortListener = () => requestController.abort(externalSignal.reason);
+        externalSignal.addEventListener('abort', externalAbortListener, { once: true });
+      }
+    }
+    const timeoutIdentifier = window.setTimeout(() => {
+      requestController.abort(new DOMException('Request timed out', 'TimeoutError'));
+    }, timeoutMs);
+    return {
+      requestController,
+      cleanup: () => {
+        window.clearTimeout(timeoutIdentifier);
+        if (externalSignal && externalAbortListener) {
+          externalSignal.removeEventListener('abort', externalAbortListener);
+        }
       },
     };
+  }
+
+  async request(endpoint, options = {}) {
+    const requestMethod = String(options.method || 'GET').toUpperCase();
+    const timeoutMs = Number.isFinite(options.timeoutMs)
+      ? Math.max(1, options.timeoutMs)
+      : DEFAULT_REQUEST_TIMEOUT_MS;
+    const { requestController, cleanup } = this.createAbortController(
+      options.signal,
+      timeoutMs,
+    );
+    const requestOptions = {
+      ...options,
+      method: requestMethod,
+      credentials: 'same-origin',
+      signal: requestController.signal,
+      headers: this.requestHeaders(requestMethod, options.body, options.headers),
+    };
+    delete requestOptions.timeoutMs;
 
     try {
-      const response = await fetch(url, config);
-
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, requestOptions);
       if (this.handleUnauthorized(response)) {
-        throw new Error('Unauthorized');
+        throw new Error('登录状态已失效');
       }
-
-      const data = await this.parseResponseBody(response);
-
+      const responsePayload = await this.parseResponseBody(response);
       if (!response.ok) {
-        const error = new Error(this.responseErrorMessage(data, 'Request failed'));
-        error.status = response.status;
-        throw error;
+        const requestError = new Error(
+          this.responseErrorMessage(responsePayload, '请求失败'),
+        );
+        requestError.status = response.status;
+        throw requestError;
       }
-
-      return data;
-    } catch (error) {
-      console.error('API request failed:', error);
-      throw error;
+      return responsePayload;
+    } catch (requestError) {
+      if (requestError && requestError.name === 'AbortError') {
+        throw new Error('请求已取消');
+      }
+      if (requestError && requestError.name === 'TimeoutError') {
+        throw new Error('请求超时');
+      }
+      throw requestError;
+    } finally {
+      cleanup();
     }
   }
 
@@ -64,27 +120,12 @@ class APIClient {
     if (response.status !== 401) {
       return false;
     }
-    this.clearToken();
-    if (!window.location.pathname.endsWith('/login.html')) {
-      window.location.href = '/login.html';
+    window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+    const publicPages = ['/login.html', '/register.html'];
+    if (!publicPages.some(page => window.location.pathname.endsWith(page))) {
+      window.location.assign('/login.html');
     }
     return true;
-  }
-
-  getDownloadFilename(contentDisposition, fallback) {
-    if (!contentDisposition) {
-      return fallback;
-    }
-    const encodedMatch = contentDisposition.match(/filename\*=(?:UTF-8''|utf-8'')([^;]+)/i);
-    if (encodedMatch) {
-      try {
-        return decodeURIComponent(encodedMatch[1].trim().replace(/^"|"$/g, ''));
-      } catch (error) {
-        console.warn('Failed to decode response filename:', error);
-      }
-    }
-    const plainMatch = contentDisposition.match(/filename="?([^";\n]+)"?/i);
-    return plainMatch ? plainMatch[1] : fallback;
   }
 
   async parseResponseBody(response) {
@@ -92,183 +133,102 @@ class APIClient {
     if (contentType.includes('application/json')) {
       try {
         return await response.json();
-      } catch (error) {
+      } catch (_parseError) {
         return { detail: '服务器返回了无效响应' };
       }
     }
     return { detail: await response.text() };
   }
 
-  responseErrorMessage(data, fallback) {
-    if (data && typeof data.detail === 'string' && data.detail.trim()) {
-      return data.detail;
+  responseErrorMessage(responsePayload, fallbackMessage) {
+    if (responsePayload && typeof responsePayload.detail === 'string'
+      && responsePayload.detail.trim()) {
+      return responsePayload.detail;
     }
-    if (data && typeof data.message === 'string' && data.message.trim()) {
-      return data.message;
+    if (responsePayload && typeof responsePayload.message === 'string'
+      && responsePayload.message.trim()) {
+      return responsePayload.message;
     }
-    return fallback;
+    return fallbackMessage;
   }
 
-  /**
-   * Set authentication token
-   */
-  setToken(token) {
-    this.token = token;
-    localStorage.setItem('auth_token', token);
-  }
-
-  /**
-   * Clear authentication token
-   */
-  clearToken() {
-    this.token = null;
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('user_info');
-  }
-
-  /**
-   * Check authentication status
-   */
-  async checkAuthStatus() {
+  checkAuthStatus() {
     return this.request('/api/auth/status');
   }
 
-  /**
-   * Initial setup (create first admin user)
-   */
-  async setup(username, password) {
-    const response = await this.request('/api/auth/setup', {
+  getCurrentUser() {
+    return this.request('/api/auth/me');
+  }
+
+  setup(username, password, setupToken = '') {
+    return this.request('/api/auth/setup', {
+      method: 'POST',
+      body: JSON.stringify({
+        username,
+        password,
+        setup_token: setupToken || null,
+      }),
+    });
+  }
+
+  login(username, password) {
+    return this.request('/api/auth/login', {
       method: 'POST',
       body: JSON.stringify({ username, password }),
     });
-
-    if (response.success) {
-      this.setToken(response.token);
-      localStorage.setItem('user_info', JSON.stringify({
-        username: response.username,
-        is_admin: response.is_admin,
-      }));
-    }
-
-    return response;
   }
 
-  /**
-   * Login
-   */
-  async login(username, password) {
-    const response = await this.request('/api/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ username, password }),
-    });
-
-    if (response.success) {
-      this.setToken(response.token);
-      localStorage.setItem('user_info', JSON.stringify({
-        username: response.username,
-        is_admin: response.is_admin,
-      }));
-    }
-
-    return response;
-  }
-
-  /**
-   * Logout
-   */
   async logout() {
-    try {
-      await this.request('/api/auth/logout', { method: 'POST' });
-    } finally {
-      this.clearToken();
-      window.location.href = '/login.html';
-    }
+    await this.request('/api/auth/logout', { method: 'POST' });
   }
 
-  /**
-   * Register new user (admin only)
-   */
-  async register(username, password) {
+  register(username, password) {
     return this.request('/api/auth/register', {
       method: 'POST',
       body: JSON.stringify({ username, password }),
     });
   }
 
-  /**
-   * List all users (admin only)
-   */
-  async listUsers() {
+  listUsers() {
     return this.request('/api/auth/users');
   }
 
-  /**
-   * Delete user (admin only)
-   */
-  async deleteUser(username) {
+  deleteUser(username) {
     return this.request(`/api/auth/users/${encodeURIComponent(username)}`, {
       method: 'DELETE',
     });
   }
 
-  /**
-   * Check if registration is enabled (public)
-   */
-  async checkRegistrationStatus() {
+  checkRegistrationStatus() {
     return this.request('/api/auth/registration-status');
   }
 
-  /**
-   * Toggle registration setting (admin only)
-   */
-  async toggleRegistration(enabled) {
+  toggleRegistration(enabled) {
     return this.request('/api/auth/registration-toggle', {
       method: 'POST',
       body: JSON.stringify({ enabled }),
     });
   }
 
-  /**
-   * Public user registration
-   */
-  async registerPublic(username, password) {
-    const response = await this.request('/api/auth/register/public', {
+  registerPublic(username, password) {
+    return this.request('/api/auth/register/public', {
       method: 'POST',
       body: JSON.stringify({ username, password }),
     });
-
-    if (response.success && response.token) {
-      this.setToken(response.token);
-      localStorage.setItem('user_info', JSON.stringify({
-        username: response.username,
-        is_admin: response.is_admin,
-      }));
-    }
-
-    return response;
   }
 
-  /**
-   * Get user settings
-   */
-  async getSettings() {
+  getSettings() {
     return this.request('/api/settings');
   }
 
-  /**
-   * Update user settings
-   */
-  async updateSettings(settings) {
+  updateSettings(settingsPayload) {
     return this.request('/api/settings', {
       method: 'POST',
-      body: JSON.stringify(settings),
+      body: JSON.stringify(settingsPayload),
     });
   }
 
-  /**
-   * Change password
-   */
-  async changePassword(oldPassword, newPassword) {
+  changePassword(oldPassword, newPassword) {
     return this.request('/api/settings/password', {
       method: 'POST',
       body: JSON.stringify({
@@ -278,186 +238,150 @@ class APIClient {
     });
   }
 
-  /**
-   * Reset settings to default
-   */
-  async resetSettings() {
-    return this.request('/api/settings/reset', {
+  resetSettings() {
+    return this.request('/api/settings/reset', { method: 'POST' });
+  }
+
+  exportSettings() {
+    const downloadLink = document.createElement('a');
+    downloadLink.href = `${API_BASE_URL}/api/settings/export`;
+    downloadLink.hidden = true;
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    downloadLink.remove();
+    return Promise.resolve({ success: true });
+  }
+
+  importSettings(settingsFile, options = {}) {
+    const importBody = new FormData();
+    importBody.append('file', settingsFile);
+    return this.request('/api/settings/import', {
       method: 'POST',
+      body: importBody,
+      signal: options.signal,
+      timeoutMs: options.timeoutMs || DEFAULT_REQUEST_TIMEOUT_MS,
     });
   }
 
-  /**
-   * Export settings as JSON file
-   */
-  async exportSettings() {
-    const response = await fetch(`${API_BASE_URL}/api/settings/export`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${this.token}`,
-      },
-    });
-
-    if (this.handleUnauthorized(response)) {
-      throw new Error('Unauthorized');
-    }
-    if (!response.ok) {
-      const error = await this.parseResponseBody(response);
-      throw new Error(this.responseErrorMessage(error, 'Failed to export settings'));
-    }
-
-    const contentDisposition = response.headers.get('Content-Disposition');
-    const filename = this.getDownloadFilename(contentDisposition, 'translation_config.json');
-
-    // Download file
-    const blob = await response.blob();
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    window.URL.revokeObjectURL(url);
-    document.body.removeChild(a);
-
-    return { success: true, filename };
-  }
-
-  /**
-   * Import settings from JSON file
-   */
-  async importSettings(file) {
-    const formData = new FormData();
-    formData.append('file', file);
-
-    const response = await fetch(`${API_BASE_URL}/api/settings/import`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${this.token}`,
-      },
-      body: formData,
-    });
-
-    if (this.handleUnauthorized(response)) {
-      throw new Error('Unauthorized');
-    }
-    if (!response.ok) {
-      const error = await this.parseResponseBody(response);
-      throw new Error(this.responseErrorMessage(error, 'Failed to import settings'));
-    }
-
-    return response.json();
-  }
-
-  /**
-   * Upload file
-   */
-  async uploadFile(file, onProgress) {
-    const formData = new FormData();
-    formData.append('file', file);
-
-    const xhr = new XMLHttpRequest();
+  uploadFile(pdfFile, onProgress, options = {}) {
+    const uploadBody = new FormData();
+    uploadBody.append('file', pdfFile);
+    const uploadRequest = new XMLHttpRequest();
+    const timeoutMs = Number.isFinite(options.timeoutMs)
+      ? Math.max(1, options.timeoutMs)
+      : DEFAULT_UPLOAD_TIMEOUT_MS;
 
     return new Promise((resolve, reject) => {
-      xhr.upload.addEventListener('progress', (e) => {
-        if (e.lengthComputable && onProgress) {
-          const progress = (e.loaded / e.total) * 100;
-          onProgress(progress);
-        }
-      });
-
-      xhr.addEventListener('load', () => {
-        if (xhr.status === 401) {
-          this.clearToken();
-          window.location.href = '/login.html';
-          reject(new Error('Unauthorized'));
+      let settled = false;
+      const finish = (callback) => {
+        if (settled) {
           return;
         }
-        let data = {};
+        settled = true;
+        if (options.signal) {
+          options.signal.removeEventListener('abort', abortUpload);
+        }
+        callback();
+      };
+      const abortUpload = () => uploadRequest.abort();
+
+      uploadRequest.upload.addEventListener('progress', uploadEvent => {
+        if (uploadEvent.lengthComputable && typeof onProgress === 'function') {
+          onProgress((uploadEvent.loaded / uploadEvent.total) * 100);
+        }
+      });
+      uploadRequest.addEventListener('load', () => {
+        if (uploadRequest.status === 401) {
+          this.handleUnauthorized({ status: 401 });
+          finish(() => reject(new Error('登录状态已失效')));
+          return;
+        }
+        let responsePayload = {};
         try {
-          data = JSON.parse(xhr.responseText || '{}');
-        } catch (error) {
-          reject(new Error('服务器返回了无效响应'));
+          responsePayload = JSON.parse(uploadRequest.responseText || '{}');
+        } catch (_parseError) {
+          finish(() => reject(new Error('服务器返回了无效响应')));
           return;
         }
-        if (xhr.status >= 200 && xhr.status < 300) {
-          resolve(data);
+        if (uploadRequest.status >= 200 && uploadRequest.status < 300) {
+          finish(() => resolve(responsePayload));
           return;
         }
-        reject(new Error(this.responseErrorMessage(data, 'Upload failed')));
+        finish(() => reject(new Error(
+          this.responseErrorMessage(responsePayload, '上传失败'),
+        )));
+      });
+      uploadRequest.addEventListener('error', () => {
+        finish(() => reject(new Error('上传失败')));
+      });
+      uploadRequest.addEventListener('timeout', () => {
+        finish(() => reject(new Error('上传超时')));
+      });
+      uploadRequest.addEventListener('abort', () => {
+        finish(() => reject(new Error('上传已取消')));
       });
 
-      xhr.addEventListener('error', () => reject(new Error('Upload failed')));
+      if (options.signal) {
+        if (options.signal.aborted) {
+          reject(new Error('上传已取消'));
+          return;
+        }
+        options.signal.addEventListener('abort', abortUpload, { once: true });
+      }
 
-      xhr.open('POST', `${API_BASE_URL}/api/upload`);
-      xhr.setRequestHeader('Authorization', `Bearer ${this.token}`);
-      xhr.send(formData);
+      uploadRequest.open('POST', `${API_BASE_URL}/api/upload`);
+      uploadRequest.withCredentials = true;
+      uploadRequest.timeout = timeoutMs;
+      const csrfToken = this.csrfToken();
+      if (!csrfToken) {
+        finish(() => reject(new Error('请求验证信息尚未初始化，请刷新页面后重试')));
+        return;
+      }
+      uploadRequest.setRequestHeader(CSRF_HEADER_NAME, csrfToken);
+      uploadRequest.send(uploadBody);
     });
   }
 
-  /**
-   * Start translation
-   */
-  async startTranslation(fileId, settings) {
-    const formData = new FormData();
-    formData.append('file_id', fileId);
-    formData.append('settings', JSON.stringify(settings));
-
-    const response = await fetch(`${API_BASE_URL}/api/translate`, {
+  startTranslation(fileId, translationSettings, options = {}) {
+    const translationBody = new FormData();
+    translationBody.append('file_id', fileId);
+    translationBody.append('settings', JSON.stringify(translationSettings));
+    return this.request('/api/translate', {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${this.token}`,
-      },
-      body: formData,
+      body: translationBody,
+      signal: options.signal,
+      timeoutMs: options.timeoutMs || DEFAULT_REQUEST_TIMEOUT_MS,
     });
-
-    if (this.handleUnauthorized(response)) {
-      throw new Error('Unauthorized');
-    }
-    if (!response.ok) {
-      const data = await this.parseResponseBody(response);
-      throw new Error(this.responseErrorMessage(data, 'Translation failed to start'));
-    }
-
-    return response.json();
   }
 
-  /**
-   * Get translation status
-   */
-  async getTranslationStatus(taskId) {
-    return this.request(`/api/translate/status/${taskId}`);
+  getTranslationStatus(taskId, options = {}) {
+    return this.request(`/api/translate/status/${encodeURIComponent(taskId)}`, options);
   }
 
-  /**
-   * Get translation history
-   */
-  async getTranslationHistory(limit = 200, offset = 0) {
-    return this.request(`/api/translate/history?limit=${limit}&offset=${offset}`);
+  getTranslationHistory(limit = 50, offset = 0, options = {}) {
+    const query = new URLSearchParams({
+      limit: String(limit),
+      offset: String(offset),
+    });
+    return this.request(`/api/translate/history?${query}`, options);
   }
 
-  /**
-   * Get download URL for translated file
-   */
   getDownloadUrl(taskId, fileType = 'mono') {
-    return `${API_BASE_URL}/api/translate/download/${taskId}?file_type=${fileType}`;
+    const query = new URLSearchParams({ file_type: fileType });
+    return `${API_BASE_URL}/api/translate/download/${encodeURIComponent(taskId)}?${query}`;
   }
 
-  /**
-   * Delete a history item and its files
-   */
-  async deleteHistoryItem(taskId) {
-    return this.request(`/api/translate/history/${taskId}`, {
-      method: 'DELETE'
+  deleteHistoryItem(taskId) {
+    return this.request(`/api/translate/history/${encodeURIComponent(taskId)}`, {
+      method: 'DELETE',
     });
   }
 
-  async deleteUploadedFile(fileId) {
+  deleteUploadedFile(fileId) {
     return this.request(`/api/upload/${encodeURIComponent(fileId)}`, {
       method: 'DELETE',
     });
   }
 }
 
-// Export singleton instance
 const api = new APIClient();

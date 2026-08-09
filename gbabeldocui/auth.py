@@ -16,6 +16,7 @@ import shutil
 import sqlite3
 import threading
 import time
+import uuid
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
@@ -28,7 +29,6 @@ from filelock import FileLock
 logger = logging.getLogger(__name__)
 
 # Configuration
-SECRET_KEY = secrets.token_urlsafe(32)  # Will be generated on first run
 TOKEN_EXPIRY_HOURS = 24
 DATA_DIR = Path(os.getenv("GBABELDOCUI_DATA_DIR", "data"))
 DB_PATH = DATA_DIR / "users.db"
@@ -95,6 +95,12 @@ class AuthenticationError(Exception):
     pass
 
 
+class UserDataCleanupError(Exception):
+    """Raised after account removal when its staged files still need cleanup."""
+
+    pass
+
+
 class UserManager:
     """Manages user authentication and database operations"""
 
@@ -104,8 +110,25 @@ class UserManager:
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._session_cleanup_lock = threading.Lock()
         self._last_session_cleanup = 0.0
+        self._dummy_password_hash = self._hash_password(secrets.token_urlsafe(24))
+        self.maximum_sessions_per_user = self._read_maximum_sessions_per_user()
         self._init_database()
-        self._load_or_create_secret()
+        self.secret_key = self._load_or_create_secret()
+
+    @staticmethod
+    def _read_maximum_sessions_per_user() -> int:
+        raw_value = os.getenv("GBABELDOCUI_MAX_SESSIONS_PER_USER", "10")
+        try:
+            maximum_sessions = int(raw_value)
+        except ValueError as exc:
+            raise RuntimeError(
+                "GBABELDOCUI_MAX_SESSIONS_PER_USER must be an integer"
+            ) from exc
+        if maximum_sessions <= 0:
+            raise RuntimeError(
+                "GBABELDOCUI_MAX_SESSIONS_PER_USER must be greater than zero"
+            )
+        return maximum_sessions
 
     def _connect(self) -> sqlite3.Connection:
         """Open a database connection with the required integrity settings."""
@@ -173,13 +196,16 @@ class UserManager:
         cursor.execute(
             "CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions (expires_at)"
         )
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_sessions_username_created_at "
+            "ON sessions (username, created_at DESC)"
+        )
 
         conn.commit()
         conn.close()
 
-    def _load_or_create_secret(self):
+    def _load_or_create_secret(self) -> str:
         """Load existing secret key or create a new one"""
-        global SECRET_KEY
         conn = self._connect()
         cursor = conn.cursor()
 
@@ -199,7 +225,7 @@ class UserManager:
                     raise RuntimeError("Failed to initialize the application secret")
                 conn.commit()
 
-            SECRET_KEY = result[0]
+            return str(result[0])
         finally:
             conn.close()
 
@@ -430,57 +456,80 @@ class UserManager:
         except ValueError:
             return None
 
-        conn = self._connect()
-        cursor = conn.cursor()
+        account_lock = self._account_mutation_lock(normalized_username)
+        with account_lock:
+            conn = self._connect()
+            try:
+                conn.execute("BEGIN IMMEDIATE")
+                cursor = conn.cursor()
+                cursor.execute(
+                    "SELECT username, password_hash, is_admin FROM users "
+                    "WHERE username = ? COLLATE NOCASE",
+                    (normalized_username,),
+                )
+                result = cursor.fetchone()
 
-        cursor.execute(
-            "SELECT username, password_hash, is_admin FROM users WHERE username = ? COLLATE NOCASE",
-            (normalized_username,),
-        )
-        result = cursor.fetchone()
+                if not result:
+                    self._verify_password(password, self._dummy_password_hash)
+                    conn.rollback()
+                    return None
 
-        if not result:
-            conn.close()
-            return None
+                stored_username, password_hash, is_admin = result
+                if not self._verify_password(password, password_hash):
+                    conn.rollback()
+                    return None
 
-        stored_username, password_hash, is_admin = result
+                now = _utc_now()
+                expires_at = now + timedelta(hours=TOKEN_EXPIRY_HOURS)
+                token_data = {
+                    "username": stored_username,
+                    "is_admin": bool(is_admin),
+                    "exp": expires_at.timestamp(),
+                    "nonce": secrets.token_urlsafe(16),
+                }
+                session_token = jwt.encode(
+                    token_data, self.secret_key, algorithm="HS256"
+                )
 
-        if not self._verify_password(password, password_hash):
-            conn.close()
-            return None
-
-        # Update last login
-        cursor.execute(
-            "UPDATE users SET last_login = ? WHERE username = ?",
-            (_database_timestamp(), stored_username),
-        )
-
-        # Create session token
-        now = _utc_now()
-        expires_at = now + timedelta(hours=TOKEN_EXPIRY_HOURS)
-        token_data = {
-            "username": stored_username,
-            "is_admin": bool(is_admin),
-            "exp": expires_at.timestamp(),
-        }
-
-        session_token = jwt.encode(token_data, SECRET_KEY, algorithm="HS256")
-
-        # Store session in database
-        cursor.execute(
-            "INSERT INTO sessions (session_token, username, created_at, expires_at) VALUES (?, ?, ?, ?)",
-            (
-                session_token,
-                stored_username,
-                _database_timestamp(now),
-                _database_timestamp(expires_at),
-            ),
-        )
-
-        conn.commit()
-        conn.close()
-
-        return session_token
+                cursor.execute(
+                    "UPDATE users SET last_login = ? WHERE username = ?",
+                    (_database_timestamp(now), stored_username),
+                )
+                cursor.execute(
+                    "INSERT INTO sessions "
+                    "(session_token, username, created_at, expires_at) "
+                    "VALUES (?, ?, ?, ?)",
+                    (
+                        session_token,
+                        stored_username,
+                        _database_timestamp(now),
+                        _database_timestamp(expires_at),
+                    ),
+                )
+                cursor.execute(
+                    """
+                    DELETE FROM sessions
+                    WHERE username = ? COLLATE NOCASE
+                      AND session_token NOT IN (
+                          SELECT session_token FROM sessions
+                          WHERE username = ? COLLATE NOCASE
+                          ORDER BY created_at DESC
+                          LIMIT ?
+                      )
+                    """,
+                    (
+                        stored_username,
+                        stored_username,
+                        self.maximum_sessions_per_user,
+                    ),
+                )
+                conn.commit()
+                return session_token
+            except Exception:
+                conn.rollback()
+                raise
+            finally:
+                conn.close()
 
     def _cleanup_expired_sessions_if_due(self) -> None:
         """Run session cleanup at a low frequency instead of on every request."""
@@ -506,7 +555,7 @@ class UserManager:
         try:
             self._cleanup_expired_sessions_if_due()
             # Decode JWT token
-            jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+            jwt.decode(token, self.secret_key, algorithms=["HS256"])
 
             conn = self._connect()
             cursor = conn.cursor()
@@ -585,6 +634,8 @@ class UserManager:
         normalized_target_username = _normalize_username(username)
         account_lock = self._account_mutation_lock(normalized_target_username)
 
+        user_dir: Path | None = None
+        staged_user_dir: Path | None = None
         with account_lock:
             conn = self._connect()
             try:
@@ -616,9 +667,6 @@ class UserManager:
                     if admin_count <= 1:
                         raise ValueError("Cannot delete the last admin user")
 
-                # Commit the account deletion before removing files. A database
-                # failure must not destroy the user's data. The account lock is
-                # held through cleanup so a new account cannot reuse the path.
                 user_dir = self.get_user_dir(target_username)
                 users_root = self.data_dir / "users"
                 if user_dir.exists():
@@ -628,25 +676,46 @@ class UserManager:
                         raise ValueError(
                             "User data directory is outside the users root"
                         ) from exc
+                    deletion_root = users_root / ".deleted"
+                    deletion_root.mkdir(parents=True, exist_ok=True)
+                    staged_user_dir = deletion_root / (
+                        f"{target_username}-{uuid.uuid4().hex}"
+                    )
+                    user_dir.replace(staged_user_dir)
                 cursor.execute(
                     "DELETE FROM users WHERE username = ?", (target_username,)
                 )
                 conn.commit()
             except Exception:
                 conn.rollback()
+                if (
+                    staged_user_dir is not None
+                    and staged_user_dir.exists()
+                    and user_dir is not None
+                ):
+                    try:
+                        if user_dir.exists():
+                            raise OSError("The original user directory already exists")
+                        staged_user_dir.replace(user_dir)
+                    except OSError as restore_error:
+                        logger.exception(
+                            "Failed to restore staged user directory for %s",
+                            normalized_target_username,
+                        )
+                        raise UserDataCleanupError(
+                            "Account deletion failed and the user files could not be restored"
+                        ) from restore_error
                 raise
             finally:
                 conn.close()
 
-            if user_dir.exists():
+            if staged_user_dir is not None and staged_user_dir.exists():
                 try:
-                    shutil.rmtree(user_dir)
+                    shutil.rmtree(staged_user_dir)
                 except OSError as exc:
-                    logger.warning(
-                        "User %s was deleted but data cleanup failed: %s",
-                        target_username,
-                        exc,
-                    )
+                    raise UserDataCleanupError(
+                        "User account was deleted, but staged files still require cleanup"
+                    ) from exc
 
         return True
 
@@ -713,37 +782,42 @@ class UserManager:
         normalized_username = _normalize_username(username)
         _validate_password(new_password, "New password")
 
-        conn = self._connect()
-        cursor = conn.cursor()
+        account_lock = self._account_mutation_lock(normalized_username)
+        with account_lock:
+            conn = self._connect()
+            try:
+                conn.execute("BEGIN IMMEDIATE")
+                cursor = conn.cursor()
+                cursor.execute(
+                    "SELECT username, password_hash FROM users "
+                    "WHERE username = ? COLLATE NOCASE",
+                    (normalized_username,),
+                )
+                result = cursor.fetchone()
 
-        cursor.execute(
-            "SELECT username, password_hash FROM users WHERE username = ? COLLATE NOCASE",
-            (normalized_username,),
-        )
-        result = cursor.fetchone()
+                if not result:
+                    self._verify_password(old_password, self._dummy_password_hash)
+                    raise ValueError(f"User '{username}' does not exist")
 
-        if not result:
-            conn.close()
-            raise ValueError(f"User '{username}' does not exist")
+                stored_username, password_hash = result
+                if not self._verify_password(old_password, password_hash):
+                    raise AuthenticationError("Incorrect current password")
 
-        stored_username, password_hash = result
-        if not self._verify_password(old_password, password_hash):
-            conn.close()
-            raise AuthenticationError("Incorrect current password")
-
-        new_hash = self._hash_password(new_password)
-        cursor.execute(
-            "UPDATE users SET password_hash = ? WHERE username = ?",
-            (new_hash, stored_username),
-        )
-
-        # Invalidate all existing sessions for this user
-        cursor.execute("DELETE FROM sessions WHERE username = ?", (stored_username,))
-
-        conn.commit()
-        conn.close()
-
-        return True
+                new_hash = self._hash_password(new_password)
+                cursor.execute(
+                    "UPDATE users SET password_hash = ? WHERE username = ?",
+                    (new_hash, stored_username),
+                )
+                cursor.execute(
+                    "DELETE FROM sessions WHERE username = ?", (stored_username,)
+                )
+                conn.commit()
+                return True
+            except Exception:
+                conn.rollback()
+                raise
+            finally:
+                conn.close()
 
     def get_user_dir(self, username: str) -> Path:
         """Get the data directory for a specific user"""

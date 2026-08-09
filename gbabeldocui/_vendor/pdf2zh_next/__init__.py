@@ -1,0 +1,6 @@
+from __future__ import annotations
+
+UPSTREAM_VERSION = "2.9.0"
+UPSTREAM_WHEEL_SHA256 = "4cf72454dbff21c6c35380aed5e3bfe29278f0fdbe87e83942adf89e33b37c68"
+
+__all__ = ["UPSTREAM_VERSION", "UPSTREAM_WHEEL_SHA256"]

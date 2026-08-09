@@ -1,71 +1,66 @@
 # GBabelDocUI
 
-基于官方 [`pdf2zh-next`](https://github.com/PDFMathTranslate-next/PDFMathTranslate-next) 运行时的多用户 PDF 翻译 Web UI 适配层。
+GBabelDocUI 是基于 BabelDOC 的自托管多用户 PDF 翻译 Web UI。
 
-本项目基于 [`eaiu/GBabelDocUI`](https://github.com/eaiu/GBabelDocUI) 修改，当前维护仓库为 [`SocialYjj/GBabelDocUI`](https://github.com/SocialYjj/GBabelDocUI)。核心翻译引擎由 [`BabelDOC`](https://github.com/funstory-ai/BabelDOC) 提供。
+本项目基于 [`eaiu/GBabelDocUI`](https://github.com/eaiu/GBabelDocUI) 修改，并内置经校验的 `pdf2zh-next 2.9.0` 运行时子集。内置内容仅包含本 Web UI 使用的配置模型、高阶翻译入口、翻译器和异步桥接，不包含上游命令行工具、Gradio 界面或 HTTP API。
 
 ## 主要能力
 
-- 多用户注册、登录、管理员和普通用户权限隔离。
-- 用户配置、翻译历史、上传文件和输出文件持久化保存。
-- PDF 上传校验、用户存储配额、翻译任务状态和任务恢复。
-- 支持 OpenAI、硅基流动、Gemini、Ollama 等由官方运行时提供的翻译服务。
-- 支持单语 PDF、双语 PDF、页面范围、术语提取和 BabelDOC 高级选项。
+- 管理员和普通用户账户，配置、文件、任务与历史记录按用户隔离。
+- `HttpOnly` Cookie 会话、CSRF 防护、登录限流和单用户会话上限。
+- PDF 内容、大小、页数、页码范围、存储配额与任务并发校验。
+- Web 设置页支持 OpenAI、Azure OpenAI 和 Google Gemini。
+- SQLite 持久化任务状态与历史记录，并提供明确的保留期和清理机制。
+- 单实例 Docker Compose 部署，使用非 root 用户和只读根文件系统。
 
-## Docker 部署
+## 快速开始
 
-推荐在 Linux 或 VPS 上使用仓库根目录的 Compose 配置：
+### Docker Compose
 
 ```bash
 git clone https://github.com/SocialYjj/GBabelDocUI.git
 cd GBabelDocUI
+mkdir -p data
+sudo chown -R 10001:10001 data  # 仅 Linux 绑定目录需要
 docker compose up -d --build
 ```
 
-默认访问 `http://127.0.0.1:7860`。Compose 会将 `./data` 挂载到 `/app/data`，其中包含账户、配置、上传文件和翻译结果；该目录只保存在本地或 VPS，不得提交到公开仓库。
+打开 `http://127.0.0.1:7860/login.html`。Compose 默认仅绑定回环地址，并为本机 HTTP 设置 `GBABELDOCUI_COOKIE_SECURE=false`。
 
-首次 GitHub Actions 发布完成后，也可以使用当前仓库的 amd64 GHCR 镜像：
+### uv
+
+需要 Python 3.10–3.13 和 [`uv`](https://docs.astral.sh/uv/)。
 
 ```bash
-docker pull ghcr.io/socialyjj/gbabeldocui:latest
-docker run -d \
-  --name gbabeldocui \
-  --restart unless-stopped \
-  -p 127.0.0.1:7860:7860 \
-  -v "$(pwd)/data:/app/data" \
-  ghcr.io/socialyjj/gbabeldocui:latest
+git clone https://github.com/SocialYjj/GBabelDocUI.git
+cd GBabelDocUI
+uv sync --frozen
+export GBABELDOCUI_COOKIE_SECURE=false
+uv run gbabeldocui
 ```
 
-公开访问时应配置 HTTPS 反向代理。翻译执行器按单进程设计，请保持一个 Uvicorn worker 和一个应用副本，不要让多个副本共享同一个 `data/` 目录。
+Windows PowerShell 将 `export` 命令替换为：
 
-## Web UI 使用
+```powershell
+$env:GBABELDOCUI_COOKIE_SECURE = "false"
+```
 
-1. 打开 `/login.html`，首次运行时创建管理员账户。
-2. 在“设置”页面填写翻译服务、模型、API Key、源语言、目标语言、PDF 输出和页面范围。
-3. 在“上传”页面选择 PDF 并开始翻译；任务进度和历史记录会按当前用户隔离。
-4. 翻译完成后下载单语或双语 PDF。API Key 等敏感设置只保存到本地 `data/`，不要导出或提交到 Git。
+## 部署边界
 
-详细说明：
+- 公开访问必须使用 HTTPS 反向代理，并保持 `GBABELDOCUI_COOKIE_SECURE=true`。
+- 首个管理员只允许通过回环请求创建。必须远程初始化时，设置一次性高强度 `GBABELDOCUI_SETUP_TOKEN`，完成后立即移除并重启服务。
+- 每个数据目录只运行一个应用进程和一个副本；不得让多个 Uvicorn worker 或多个副本共享同一 `data/` 目录。
+- `data/` 可能包含账户、API 密钥、上传 PDF 和翻译结果，禁止提交、打包或公开。
+- Web UI 不提供内置上游命令行工具、Gradio 界面或 HTTP API。
+
+## 文档
 
 - [Docker 安装](./getting-started/INSTALLATION_docker.md)
+- [uv 安装](./getting-started/INSTALLATION_uv.md)
 - [Web UI 使用](./getting-started/USAGE_webui.md)
-- [高级选项](./advanced/advanced.md)
-- [翻译服务文档](./advanced/Documentation-of-Translation-Services.md)
-- [支持的语言](./supported_languages.md)
-
-## 本地开发
-
-```bash
-uv sync --dev --frozen
-uv run pytest -q
-uv run ruff check gbabeldocui tests
-uv run ruff format --check gbabeldocui tests
-```
-
-前端直接使用仓库内的静态文件；真实部署和数据边界说明见根目录 [`README.md`](https://github.com/SocialYjj/GBabelDocUI/blob/main/README.md)、[`NOTICE`](https://github.com/SocialYjj/GBabelDocUI/blob/main/NOTICE) 和 [`docker-compose.yml`](https://github.com/SocialYjj/GBabelDocUI/blob/main/docker-compose.yml)。
+- [高级参考](./advanced/advanced.md)
+- [翻译服务](./advanced/Documentation-of-Translation-Services.md)
 
 ## 来源与许可证
 
-本项目遵循 [AGPL-3.0](https://github.com/SocialYjj/GBabelDocUI/blob/main/LICENSE)。第三方运行时、BabelDOC 和早期来源的修改范围见 [`NOTICE`](https://github.com/SocialYjj/GBabelDocUI/blob/main/NOTICE)。
-
-问题反馈和代码贡献请提交到 [GitHub Issues](https://github.com/SocialYjj/GBabelDocUI/issues) 或 Pull Request；不要上传 `data/`、`yuan/`、数据库、密钥、PDF 和生成结果。
+GBabelDocUI 及内置的上游运行时子集按 [AGPL-3.0](https://github.com/SocialYjj/GBabelDocUI/blob/main/LICENSE) 发布。来源、校验值和修改边界见 [`NOTICE`](https://github.com/SocialYjj/GBabelDocUI/blob/main/NOTICE) 与[内置运行时来源说明](https://github.com/SocialYjj/GBabelDocUI/blob/main/gbabeldocui/_vendor/pdf2zh_next/UPSTREAM.md)。

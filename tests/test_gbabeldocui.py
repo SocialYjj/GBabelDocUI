@@ -1,12 +1,33 @@
+import asyncio
 import importlib
+import ipaddress
+import json
+import os
+import socket
+import sqlite3
 import sys
 import time
 from pathlib import Path
 from types import SimpleNamespace
 
+import fitz
+import pytest
 from fastapi.testclient import TestClient
+from filelock import FileLock
 
-SAMPLE_PDF_BYTES = b"%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n"
+
+def create_sample_pdf_bytes(page_count=1):
+    document = fitz.open()
+    try:
+        for _ in range(page_count):
+            document.new_page()
+        return document.tobytes()
+    finally:
+        document.close()
+
+
+SAMPLE_PDF_BYTES = create_sample_pdf_bytes()
+BOOTSTRAP_VALUE = "test-setup-token"
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
@@ -14,6 +35,8 @@ if str(ROOT) not in sys.path:
 
 def load_web_api_module(tmp_path, monkeypatch):
     monkeypatch.setenv("GBABELDOCUI_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("GBABELDOCUI_COOKIE_SECURE", "false")
+    monkeypatch.setenv("GBABELDOCUI_SETUP_TOKEN", BOOTSTRAP_VALUE)
 
     import gbabeldocui.auth as auth_module
     import gbabeldocui.web_api as web_api_module
@@ -25,15 +48,38 @@ def load_web_api_module(tmp_path, monkeypatch):
 
 
 def setup_admin_headers(client):
+    status_response = client.get("/api/auth/status")
+    assert status_response.status_code == 200
+    csrf_token = client.cookies.get("gbabeldocui_csrf")
+    assert csrf_token
     response = client.post(
         "/api/auth/setup",
-        json={"username": "admin", "password": "secret123"},
+        json={
+            "username": "admin",
+            "password": "secret123",
+            "setup_token": BOOTSTRAP_VALUE,
+        },
+        headers={"X-CSRF-Token": csrf_token},
     )
     assert response.status_code == 200
-    return {"Authorization": f"Bearer {response.json()['token']}"}
+    assert "token" not in response.json()
+    return {"X-CSRF-Token": csrf_token}
 
 
-def test_build_settings_model_uses_official_pdf2zh_next(tmp_path, monkeypatch):
+def login_headers(client, username, password):
+    csrf_token = client.cookies.get("gbabeldocui_csrf")
+    assert csrf_token
+    response = client.post(
+        "/api/auth/login",
+        json={"username": username, "password": password},
+        headers={"X-CSRF-Token": csrf_token},
+    )
+    assert response.status_code == 200
+    assert "token" not in response.json()
+    return {"X-CSRF-Token": csrf_token}
+
+
+def test_build_settings_model_uses_bundled_verified_runtime(tmp_path, monkeypatch):
     web_api_module = load_web_api_module(tmp_path, monkeypatch)
 
     settings = web_api_module.build_settings_model_from_user_config(
@@ -82,17 +128,20 @@ def test_translation_pages_use_saved_preference_when_request_is_not_explicit(
     web_api_module = load_web_api_module(tmp_path, monkeypatch)
 
     assert (
-        web_api_module._resolve_translation_pages({}, {"page_range": "first5"}) == "1-5"
+        web_api_module._resolve_translation_pages(
+            {}, {"page_range": "first5"}, page_count=4
+        )
+        == "1-4"
     )
     assert (
         web_api_module._resolve_translation_pages(
-            {}, {"page_range": "custom", "custom_pages": "2,4-5"}
+            {}, {"page_range": "custom", "custom_pages": "2,4-5"}, page_count=5
         )
         == "2,4-5"
     )
     assert (
         web_api_module._resolve_translation_pages(
-            {"pages": "all"}, {"page_range": "first"}
+            {"pages": "all"}, {"page_range": "first"}, page_count=1
         )
         is None
     )
@@ -133,13 +182,7 @@ def test_web_flow_with_mocked_translation(tmp_path, monkeypatch):
         assert status_resp.status_code == 200
         assert status_resp.json()["setup_required"] is True
 
-        setup_resp = client.post(
-            "/api/auth/setup",
-            json={"username": "admin", "password": "secret123"},
-        )
-        assert setup_resp.status_code == 200
-        token = setup_resp.json()["token"]
-        headers = {"Authorization": f"Bearer {token}"}
+        headers = setup_admin_headers(client)
 
         settings_payload = {
             "service": "OpenAI",
@@ -168,6 +211,15 @@ def test_web_flow_with_mocked_translation(tmp_path, monkeypatch):
         )
         assert translate_resp.status_code == 200
         task_id = translate_resp.json()["task_id"]
+
+        with sqlite3.connect(web_api_module.task_store.db_path) as connection:
+            settings_json = connection.execute(
+                "SELECT settings_json FROM translation_tasks WHERE task_id = ?",
+                (task_id,),
+            ).fetchone()[0]
+        persistent_settings = json.loads(settings_json)
+        assert "openai_api_key" not in persistent_settings["user_settings"]
+        assert "test-key" not in settings_json
 
         for _ in range(20):
             task_resp = client.get(f"/api/translate/status/{task_id}", headers=headers)
@@ -231,6 +283,26 @@ def test_upload_size_limit_removes_partial_file(tmp_path, monkeypatch):
     assert response.status_code == 413
     upload_dir = tmp_path / "data" / "users" / "admin" / "uploads"
     assert list(upload_dir.iterdir()) == []
+
+
+def test_cancelled_upload_removes_partial_file(tmp_path, monkeypatch):
+    web_api_module = load_web_api_module(tmp_path, monkeypatch)
+    file_path = tmp_path / "partial.pdf"
+
+    class CancelledUpload:
+        def __init__(self):
+            self.read_count = 0
+
+        async def read(self, _chunk_size):
+            self.read_count += 1
+            if self.read_count == 1:
+                return b"partial"
+            raise asyncio.CancelledError
+
+    with pytest.raises(asyncio.CancelledError):
+        asyncio.run(web_api_module._save_uploaded_file(CancelledUpload(), file_path))
+
+    assert not file_path.exists()
 
 
 def test_failed_translation_start_removes_unattached_upload(tmp_path, monkeypatch):
@@ -303,7 +375,7 @@ def test_orphan_upload_cleanup_preserves_referenced_files(tmp_path, monkeypatch)
     assert referenced_path.exists()
 
 
-def test_registration_toggle_requires_boolean_and_bearer_is_case_insensitive(
+def test_registration_toggle_requires_boolean_and_authorization_header_is_ignored(
     tmp_path, monkeypatch
 ):
     web_api_module = load_web_api_module(tmp_path, monkeypatch)
@@ -324,11 +396,14 @@ def test_registration_toggle_requires_boolean_and_bearer_is_case_insensitive(
     )
     assert enabled_response.status_code == 200
 
-    lowercase_scheme_response = client.get(
+    bearer_token = web_api_module.user_manager.authenticate("admin", "secret123")
+    assert bearer_token
+    client.cookies.delete(web_api_module.SESSION_COOKIE_NAME)
+    authorization_header_response = client.get(
         "/api/settings",
-        headers={"Authorization": headers["Authorization"].replace("Bearer", "bearer")},
+        headers={"Authorization": f"Bearer {bearer_token}"},
     )
-    assert lowercase_scheme_response.status_code == 200
+    assert authorization_header_response.status_code == 401
 
 
 def test_regular_user_can_save_settings_with_empty_privileged_endpoints(
@@ -345,9 +420,7 @@ def test_regular_user_can_save_settings_with_empty_privileged_endpoints(
     )
     assert create_user_response.status_code == 200
 
-    worker_token = web_api_module.user_manager.authenticate("worker", "secret123")
-    assert worker_token
-    worker_headers = {"Authorization": f"Bearer {worker_token}"}
+    worker_headers = login_headers(client, "worker", "secret123")
 
     response = client.post(
         "/api/settings",
@@ -377,9 +450,7 @@ def test_regular_user_cannot_select_server_owned_translation_service(
     )
     assert create_user_response.status_code == 200
 
-    worker_token = web_api_module.user_manager.authenticate("worker", "secret123")
-    assert worker_token
-    worker_headers = {"Authorization": f"Bearer {worker_token}"}
+    worker_headers = login_headers(client, "worker", "secret123")
 
     worker_response = client.post(
         "/api/settings",
@@ -388,6 +459,7 @@ def test_regular_user_cannot_select_server_owned_translation_service(
     )
     assert worker_response.status_code == 403
 
+    admin_headers = login_headers(client, "admin", "secret123")
     admin_response = client.post(
         "/api/settings",
         json={"service": "Ollama"},
@@ -472,11 +544,320 @@ def test_invalid_setting_types_return_client_errors(tmp_path, monkeypatch):
 def test_username_cannot_escape_data_directory(tmp_path, monkeypatch):
     web_api_module = load_web_api_module(tmp_path, monkeypatch)
     client = TestClient(web_api_module.app)
+    assert client.get("/api/auth/status").status_code == 200
+    csrf_token = client.cookies.get("gbabeldocui_csrf")
+    assert csrf_token
 
     response = client.post(
         "/api/auth/setup",
-        json={"username": "../outside", "password": "secret123"},
+        json={
+            "username": "../outside",
+            "password": "secret123",
+            "setup_token": BOOTSTRAP_VALUE,
+        },
+        headers={"X-CSRF-Token": csrf_token},
     )
 
     assert response.status_code == 400
     assert not (tmp_path / "outside").exists()
+
+
+def test_session_cookie_is_http_only_secure_and_same_site_strict(tmp_path, monkeypatch):
+    monkeypatch.setenv("GBABELDOCUI_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("GBABELDOCUI_COOKIE_SECURE", "true")
+    monkeypatch.setenv("GBABELDOCUI_SETUP_TOKEN", BOOTSTRAP_VALUE)
+
+    import gbabeldocui.auth as auth_module
+    import gbabeldocui.web_api as web_api_module
+
+    importlib.reload(auth_module)
+    web_api_module = importlib.reload(web_api_module)
+    with TestClient(web_api_module.app, base_url="https://testserver") as client:
+        status_response = client.get("/api/auth/status")
+        csrf_cookie = client.cookies.get(web_api_module.CSRF_COOKIE_NAME)
+        assert csrf_cookie
+        csrf_set_cookie = status_response.headers.get("set-cookie", "").lower()
+        assert "secure" in csrf_set_cookie
+        assert "samesite=strict" in csrf_set_cookie
+        assert "httponly" not in csrf_set_cookie
+
+        setup_response = client.post(
+            "/api/auth/setup",
+            json={
+                "username": "admin",
+                "password": "secret123",
+                "setup_token": BOOTSTRAP_VALUE,
+            },
+            headers={"X-CSRF-Token": csrf_cookie},
+        )
+
+    assert setup_response.status_code == 200
+    session_cookie = setup_response.headers.get("set-cookie", "").lower()
+    assert "gbabeldocui_session=" in session_cookie
+    assert "httponly" in session_cookie
+    assert "secure" in session_cookie
+    assert "samesite=strict" in session_cookie
+    assert "token" not in setup_response.json()
+
+
+def test_mutating_request_without_csrf_is_rejected_before_body_use(
+    tmp_path, monkeypatch
+):
+    web_api_module = load_web_api_module(tmp_path, monkeypatch)
+    client = TestClient(web_api_module.app)
+
+    response = client.post(
+        "/api/auth/login",
+        content="{" + ("x" * 1000),
+        headers={"Content-Type": "application/json"},
+    )
+
+    assert response.status_code == 403
+
+
+def test_streaming_request_without_content_length_is_limited(tmp_path, monkeypatch):
+    web_api_module = load_web_api_module(tmp_path, monkeypatch)
+    with TestClient(web_api_module.app) as client:
+        assert client.get("/api/auth/status").status_code == 200
+        csrf_token = client.cookies.get(web_api_module.CSRF_COOKIE_NAME)
+        assert csrf_token
+
+        def oversized_body():
+            yield b'{"username":"admin","password":"'
+            yield b"x" * (web_api_module.MAX_JSON_BODY_BYTES + 1)
+            yield b'"}'
+
+        response = client.post(
+            "/api/auth/login",
+            content=oversized_body(),
+            headers={
+                web_api_module.CSRF_HEADER_NAME: csrf_token,
+                "Content-Type": "application/json",
+            },
+        )
+
+    assert response.status_code == 413
+    assert response.json()["detail"] == "Request body is too large"
+
+
+def test_settings_reject_non_finite_json_numbers(tmp_path, monkeypatch):
+    web_api_module = load_web_api_module(tmp_path, monkeypatch)
+    client = TestClient(web_api_module.app)
+    headers = setup_admin_headers(client)
+
+    response = client.post(
+        "/api/settings",
+        content='{"split_factor":NaN}',
+        headers={**headers, "Content-Type": "application/json"},
+    )
+
+    assert response.status_code == 400
+
+
+def test_settings_response_omits_saved_credentials_and_blank_keeps_them(
+    tmp_path, monkeypatch
+):
+    web_api_module = load_web_api_module(tmp_path, monkeypatch)
+    client = TestClient(web_api_module.app)
+    headers = setup_admin_headers(client)
+    save_response = client.post(
+        "/api/settings",
+        json={
+            "service": "OpenAI",
+            "openai_api_key": "configured-key",
+            "openai_model": "gpt-4o-mini",
+        },
+        headers=headers,
+    )
+    assert save_response.status_code == 200
+
+    settings_response = client.get("/api/settings")
+    assert settings_response.status_code == 200
+    payload = settings_response.json()
+    assert "openai_api_key" not in payload["settings"]
+    assert "openai_api_key" in payload["configured_credentials"]
+
+    blank_save = client.post(
+        "/api/settings",
+        json={"openai_api_key": ""},
+        headers=headers,
+    )
+    assert blank_save.status_code == 200
+    settings_file = tmp_path / "data" / "users" / "admin" / "settings.json"
+    assert "configured-key" in settings_file.read_text(encoding="utf-8")
+
+
+def test_page_range_and_max_part_boundaries(tmp_path, monkeypatch):
+    web_api_module = load_web_api_module(tmp_path, monkeypatch)
+
+    assert web_api_module._parse_page_range("1,3-4", 4) == "1,3-4"
+    for invalid_range in ("0", "4-3", "1-2,2", "5"):
+        try:
+            web_api_module._parse_page_range(invalid_range, 4)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError(f"invalid range accepted: {invalid_range}")
+
+    for invalid_maximum in range(1, 50):
+        try:
+            web_api_module._validate_saved_setting_values(
+                {"max_pages_per_part": invalid_maximum}
+            )
+        except ValueError:
+            continue
+        raise AssertionError(f"invalid maximum accepted: {invalid_maximum}")
+
+
+def test_endpoint_validation_uses_resolved_address_classification(
+    tmp_path, monkeypatch
+):
+    web_api_module = load_web_api_module(tmp_path, monkeypatch)
+
+    monkeypatch.setattr(
+        web_api_module.socket,
+        "getaddrinfo",
+        lambda *_args, **_kwargs: [
+            (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 443))
+        ],
+    )
+    assert (
+        web_api_module._validate_endpoint_url(
+            "https://translator.example/v1", "openai_base_url"
+        )
+        == "https://translator.example/v1"
+    )
+
+    monkeypatch.setattr(
+        web_api_module.socket,
+        "getaddrinfo",
+        lambda *_args, **_kwargs: [
+            (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("127.0.0.1", 443))
+        ],
+    )
+    try:
+        web_api_module._validate_endpoint_url(
+            "https://translator.example/v1", "openai_base_url"
+        )
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("non-public resolved endpoint was accepted")
+
+    assert ipaddress.ip_address("93.184.216.34").is_global
+
+
+def test_formula_patterns_reject_unsupported_or_unbounded_syntax(tmp_path, monkeypatch):
+    web_api_module = load_web_api_module(tmp_path, monkeypatch)
+
+    assert (
+        web_api_module._validate_safe_formula_pattern(
+            "CMMI|CMR", "formula_font_pattern"
+        )
+        == "CMMI|CMR"
+    )
+    for invalid_pattern in ("a+", "(a+)+", "(.)\\1", "x" * 257):
+        try:
+            web_api_module._validate_safe_formula_pattern(
+                invalid_pattern, "formula_font_pattern"
+            )
+        except ValueError:
+            continue
+        raise AssertionError(f"unsupported pattern accepted: {invalid_pattern[:20]}")
+
+
+def test_formula_font_cache_is_bounded(tmp_path, monkeypatch):
+    web_api_module = load_web_api_module(tmp_path, monkeypatch)
+    from babeldoc.format.pdf.document_il.utils import formular_helper
+
+    original_matcher = formular_helper.is_formulas_font
+    try:
+        formular_helper.is_formulas_font = lambda font_name, pattern: bool(
+            font_name and pattern
+        )
+        web_api_module._configure_babeldoc_formula_cache()
+        for index in range(5000):
+            formular_helper.is_formulas_font(f"font-{index}", "formula")
+        cache_info = formular_helper.is_formulas_font.cache_info()
+        assert cache_info.maxsize == 4096
+        assert cache_info.currsize == 4096
+    finally:
+        formular_helper.is_formulas_font = original_matcher
+
+
+def test_retention_marker_preserves_initial_creation_time(tmp_path, monkeypatch):
+    web_api_module = load_web_api_module(tmp_path, monkeypatch)
+    assert web_api_module._retention_cleanup_is_ready() is False
+
+    marker_path = web_api_module._retention_marker_path()
+    expired_timestamp = (
+        time.time() - (web_api_module.RETENTION_GRACE_DAYS + 1) * 24 * 60 * 60
+    )
+    os.utime(marker_path, (expired_timestamp, expired_timestamp))
+    marker_mtime = marker_path.stat().st_mtime_ns
+
+    assert web_api_module._retention_cleanup_is_ready() is True
+    assert marker_path.stat().st_mtime_ns == marker_mtime
+
+
+def test_retention_cleanup_keeps_record_when_file_cleanup_fails(tmp_path, monkeypatch):
+    web_api_module = load_web_api_module(tmp_path, monkeypatch)
+    with TestClient(web_api_module.app) as client:
+        setup_admin_headers(client)
+
+    user_dir = web_api_module.user_manager.get_user_dir("admin")
+    input_path = user_dir / "uploads" / "retention.pdf"
+    input_path.parent.mkdir(parents=True, exist_ok=True)
+    input_path.write_bytes(SAMPLE_PDF_BYTES)
+    task_id = "00000000-0000-4000-8000-000000000099"
+    output_dir = user_dir / "outputs" / task_id
+    output_dir.mkdir(parents=True)
+    output_path = output_dir / "retention_mono.pdf"
+    output_path.write_bytes(SAMPLE_PDF_BYTES)
+    web_api_module.task_store.create_task(
+        task_id=task_id,
+        username="admin",
+        file_id="retention-file",
+        filename="retention.pdf",
+        input_path=input_path,
+        output_dir=output_dir,
+    )
+    web_api_module.task_store.mark_processing(task_id, "processing")
+    web_api_module.task_store.mark_completed(task_id, output_path, None)
+    with sqlite3.connect(web_api_module.task_store.db_path) as connection:
+        connection.execute(
+            "UPDATE translation_tasks SET completed_at = ? WHERE task_id = ?",
+            ("2020-01-01T00:00:00", task_id),
+        )
+
+    monkeypatch.setattr(
+        web_api_module, "_cleanup_translation_artifacts", lambda *_args: False
+    )
+    assert asyncio.run(web_api_module._cleanup_expired_terminal_tasks_once()) == 0
+    assert web_api_module.task_store.get_task(task_id) is not None
+
+    monkeypatch.setattr(
+        web_api_module, "_cleanup_translation_artifacts", lambda *_args: True
+    )
+    assert asyncio.run(web_api_module._cleanup_expired_terminal_tasks_once()) == 1
+    assert web_api_module.task_store.get_task(task_id) is None
+
+
+def test_second_instance_for_same_data_directory_fails_fast(tmp_path, monkeypatch):
+    web_api_module = load_web_api_module(tmp_path, monkeypatch)
+    lock = FileLock(
+        str(web_api_module.user_manager.data_dir / ".gbabeldocui-instance.lock"),
+        timeout=0,
+        thread_local=False,
+    )
+    lock.acquire()
+    try:
+
+        async def start_second_instance():
+            async with web_api_module.application_lifespan(web_api_module.app):
+                raise AssertionError("second instance unexpectedly started")
+
+        with pytest.raises(RuntimeError, match="already owns this data directory"):
+            asyncio.run(start_second_instance())
+    finally:
+        lock.release()

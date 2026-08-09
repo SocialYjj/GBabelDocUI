@@ -1,47 +1,56 @@
-[**Getting Started**](./getting-started.md) > **Installation** > **WebUI** _(current)_
+[**Getting Started**](./getting-started.md) > **Usage** > **Web UI** _(current)_
 
 ---
 
-### Use GBabelDocUI via Webui
+# Use the GBabelDocUI Web UI
 
-#### How to open the WebUI page:
+GBabelDocUI does not open a browser automatically. Start the service, then open its login page yourself.
 
-There are several methods to open the WebUI interface. If you are using **Windows**, please refer to [this article](./INSTALLATION_winexe.md);
+## Run from the repository
 
-1. Python installed (3.10 <= version <= 3.12)
+Python 3.10 through 3.13, Git, and [`uv`](https://docs.astral.sh/uv/) are required.
 
-2. Install our package:
+```bash
+git clone https://github.com/SocialYjj/GBabelDocUI.git
+cd GBabelDocUI
+uv sync --frozen
+```
 
-3. Start using in browser:
+For local HTTP, disable the Secure cookie flag before starting the service:
+
+=== "Linux and macOS"
 
     ```bash
-    gbabeldocui
+    export GBABELDOCUI_COOKIE_SECURE=false
+    uv run gbabeldocui
     ```
 
-4. If your browswer has not been started automatically, goto
+=== "Windows PowerShell"
 
-    ```bash
-    http://localhost:7860/
+    ```powershell
+    $env:GBABELDOCUI_COOKIE_SECURE = "false"
+    uv run gbabeldocui
     ```
 
-    Drop the PDF file into the window and click `Translate`.
+Open `http://127.0.0.1:7860/login.html`.
 
-5. If you deploy GBabelDocUI with docker, and you are using ollama as GBabelDocUI's backend LLM, you should fill "Ollama host" with
+## First use
 
-   ```bash
-   http://host.docker.internal:11434
-   ```
+1. Create the initial administrator from the local login page.
+2. Open **Settings** and configure OpenAI, Azure OpenAI, or Google Gemini.
+3. Select the source language, target language, output type, page range, and advanced PDF options.
+4. Open **Upload**, select a PDF, and start the task.
+5. Monitor active tasks and download completed monolingual or bilingual PDFs from the history list.
 
-> **Security note:** Ollama is a server-side service available only to administrators. The private endpoint `http://host.docker.internal:11434` is rejected by default. Only for a trusted deployment, set `GBABELDOCUI_ALLOW_PRIVATE_ENDPOINTS=true` in the container environment. This relaxes SSRF protection; do not enable it when untrusted users can access GBabelDocUI.
+Saved API keys remain server-side and are not returned to the browser. The `data/` directory can still contain credentials, uploaded PDFs, and outputs, so it must not be committed or published.
 
-<!-- <img src="./images/gui.gif" width="500"/> -->
-<img src='./../../images/gui.gif' width="500"/>
-### Configure the translation
+## Docker use
 
-Use the GBabelDocUI settings page to choose the translation service, source and target languages, PDF outputs, page range and advanced options. The selected settings are saved per user and are snapshotted when a task starts.
+Use the repository [`docker-compose.yml`](./INSTALLATION_docker.md). It keeps application data in `./data`, model and font caches in a named volume, and binds the service to `127.0.0.1:7860` by default.
 
-When running the Docker container, keep `./data` mounted to `/app/data`. The default Compose deployment listens on `127.0.0.1:7860`; use an HTTPS reverse proxy for public access. The translation executor is designed for one application process and one shared data directory.
-## Preview## Preview
+For public access, use an HTTPS reverse proxy, keep `GBABELDOCUI_COOKIE_SECURE=true`, and run only one application process and one replica for the data directory.
 
-<img src="./../../images/before.png" width="500"/>
-<img src="./../../images/after.png" width="500"/>
+## Preview
+
+<img src="./../../images/before.png" width="500" alt="PDF before translation"/>
+<img src="./../../images/after.png" width="500" alt="PDF after translation"/>

@@ -1,15 +1,9 @@
-### Advanced
+# Advanced settings
 
-This section is intended for advanced users of this software. Here you can find:
+GBabelDocUI exposes the supported BabelDOC options through the authenticated settings page.
 
-1. [**Advanced Usage**](./advanced.md)
-<br>
-In this section, you can explore specify source/target languages, switch translation services, and more.
+- [Web UI settings](./advanced.md)
+- [Translation services](./Documentation-of-Translation-Services.md)
+- [Language codes](./Language-Codes.md)
 
-2. [**Language Code**](./Language-Codes.md)
-<br>
-If you are unsure about which codes to use for translating your source/target languages, you can find them here.
-
-3. [**Documentation of Translation Services**](./Documentation-of-Translation-Services.md)
-<br>
-If you need to review the documentation provided by the translation services you are using, please refer to this page.
+The bundled runtime does not expose the upstream CLI, Gradio UI, HTTP API, or a stable public Python API.

@@ -1,18 +1,11 @@
-### Opzioni avanzate
+> This locale currently uses the canonical English text to avoid publishing outdated translated instructions.
 
-Questa sezione è destinata agli utenti avanzati di questo software. Qui puoi trovare:
+# Advanced settings
 
-1. [**Opzioni avanzate**](./advanced.md)
-<br>
-In questa sezione, puoi esplorare i linguaggi di origine/destinazione specifici, cambiare i servizi di traduzione e altro ancora.
+GBabelDocUI exposes the supported BabelDOC options through the authenticated settings page.
 
-2. [**Codice lingua**](./Language-Codes.md)
-<br>
-Se non sei sicuro su quali codici utilizzare per tradurre le tue lingue di origine/destinazione, puoi trovarli qui.
+- [Web UI settings](./advanced.md)
+- [Translation services](./Documentation-of-Translation-Services.md)
+- [Language codes](./Language-Codes.md)
 
-3. [**Documentazione dei servizi di traduzione**](./Documentation-of-Translation-Services.md)
-<br>
-Se hai bisogno di rivedere la documentazione fornita dai servizi di traduzione che stai utilizzando, fai riferimento a questa pagina.
-
-<div align="right"> 
-<h6><small>Parte del contenuto di questa pagina è stata tradotta da GPT e potrebbe contenere errori.</small></h6>
+The bundled runtime does not expose the upstream CLI, Gradio UI, HTTP API, or a stable public Python API.

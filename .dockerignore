@@ -4,7 +4,6 @@ docs
 .venv
 .workbuddy
 .ruff_cache
-yuan
 .doctemp
 .pre-commit-config.yaml
 pdf2zh_files

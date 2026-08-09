@@ -1,61 +1,44 @@
-[**Начало работы**](./getting-started.md) > **Установка** > **uv** _(текущая)_
+# Установка GBabelDocUI через uv
 
----
+GBabelDocUI уже содержит необходимую проверенную часть pdf2zh-next. Не используйте исходный CLI вместо `gbabeldocui`.
 
-> **Примечание о назначении:** Эта страница является справочным материалом по официальной [установке `pdf2zh-next` через uv](https://github.com/PDFMathTranslate-next/PDFMathTranslate-next). Она не описывает Web UI GBabelDocUI. Описание Web UI GBabelDocUI приведено в [`USAGE_webui.md`](./USAGE_webui.md) и инструкции Docker. Не заменяйте `pdf2zh_next` на `gbabeldocui`: аргументы командной строки несовместимы.
+## Требования
 
-### Установка PDFMathTranslate через uv
+- Python 3.10–3.13
+- Git
+- [uv](https://docs.astral.sh/uv/getting-started/installation/)
 
-#### Что такое uv? Как его установить?
+## Установка и запуск
 
-uv — это чрезвычайно быстрый менеджер пакетов и проектов Python, написанный на Rust.
-<br>
-Чтобы установить uv на ваш компьютер, обратитесь к [этой статье](https://docs.astral.sh/uv/getting-started/installation/).
+```bash
+git clone https://github.com/SocialYjj/GBabelDocUI.git
+cd GBabelDocUI
+uv sync --frozen
+```
 
----
-
-#### Установка
-
-1. Установленный Python (версия от 3.10 до 3.12);
-
-2. Используйте следующую команду для установки нашего пакета:
+=== "Linux/macOS"
 
     ```bash
-    pip install uv
-    uv tool install --python 3.12 pdf2zh-next
+    export GBABELDOCUI_COOKIE_SECURE=false
+    uv run gbabeldocui
     ```
 
-После установки вы можете начать перевод через **командную строку** или **WebUI**.
+=== "Windows PowerShell"
 
-!!! Warning
+    ```powershell
+    $env:GBABELDOCUI_COOKIE_SECURE = "false"
+    uv run gbabeldocui
+    ```
 
-    Если при запуске вы видите ошибку `command not found: pdf2zh_next`, настройте переменные окружения следующим образом и попробуйте снова:
+После запуска откройте `http://127.0.0.1:7860/login.html`.
 
-    === "macOS и Linux"
+В публичной среде сохраняйте Secure cookie, используйте HTTPS и одну копию на каталог данных.
 
-        Добавьте следующее в ваш ~/.zshrc:
+## Среда разработки
 
-        ```console
-        export PATH="$PATH:/Users/Username/.local/bin"
-        ```
-
-        Затем перезапустите терминал
-
-    === "Windows"
-
-        Введите следующее в PowerShell:
-
-        ```powershell
-        $env:Path = "C:\Users\Username\.local\bin;$env:Path"
-        ```
-
-        Затем перезапустите терминал
-
-> [!NOTE]
-> Если у вас возникли проблемы при использовании WebUI, обратитесь к разделу [Использование --> WebUI](./USAGE_webui.md).
-
-> [!NOTE]
-> Если у вас возникли проблемы при использовании командной строки, обратитесь к разделу [Использование --> Командная строка](./USAGE_commandline.md).
-
-<div align="right"> 
-<h6><small>Часть содержимого этой страницы была переведена GPT и может содержать ошибки.</small></h6>
+```bash
+uv sync --dev --frozen
+uv run pytest -q
+uv run ruff check gbabeldocui tests
+uv run ruff format --check gbabeldocui tests
+```

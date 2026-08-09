@@ -1,5 +1,7 @@
-> [!NOTE]
-> Bitte [klicken Sie hier](https://funstory-ai.github.io/BabelDOC/supported_languages/), um zur Seite *BabelDOC Unterstützte Sprachen* zu navigieren. Die dortigen Informationen gelten auch für pdf2zh.
+> This locale currently uses the canonical English text to avoid publishing outdated translated instructions.
 
-<div align="right"> 
-<h6><small>Ein Teil des Inhalts dieser Seite wurde von GPT übersetzt und kann Fehler enthalten.</small></h6>
+# Supported languages
+
+The current Web UI supports automatic source-language detection plus English, Chinese, Japanese, Korean, French, German, Spanish, and Russian. Automatic detection is available only for the source language.
+
+See [Language codes](./advanced/Language-Codes.md) for the exact values. Translation quality and model availability still depend on the configured provider and BabelDOC.

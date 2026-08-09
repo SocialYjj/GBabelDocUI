@@ -1,22 +1,16 @@
-### 開始使用
+# 開始使用
 
-PDFMathTranslate 是一個強大的 PDF 翻譯工具。您可以通過多種方式安裝並開始使用此工具。
+GBabelDocUI 支援透過 Docker Compose 或本機 `uv` 環境安裝，實際操作透過 Web UI 完成。
 
----
+## 支援的方式
 
-### 如何安裝
+1. [Docker Compose](./INSTALLATION_docker.md)
+2. [uv](./INSTALLATION_uv.md)
+3. [Web UI](./USAGE_webui.md)
 
-1. [**Windows 可執行檔**](./INSTALLATION_winexe.md) <small>推薦用於 Windows</small>
-2. [**Docker**](./INSTALLATION_docker.md) <small>推薦用於 Linux</small>
-3. [**uv** (Python 套件管理工具)](./INSTALLATION_uv.md) <small>推薦用於 macOS</small>
+## 上游參考資料
 
----
+Windows EXE 與命令列頁面描述的是官方 `pdf2zh-next`，不是 GBabelDocUI；其命令與介面不能和 `gbabeldocui` 互換。
 
-### 如何使用
-
-1. [使用 **WebUI**](./USAGE_webui.md)
-2. [使用 **Zotero 插件**](https://github.com/guaguastandup/zotero-pdf2zh) (第三方程式)
-3. [使用 **命令行**](./USAGE_commandline.md)
-
-<div align="right"> 
-<h6><small>Some content on this page has been translated by GPT and may contain errors.</small></h6>
+- [上游 Windows EXE 參考](./INSTALLATION_winexe.md)
+- [上游命令列參考](./USAGE_commandline.md)

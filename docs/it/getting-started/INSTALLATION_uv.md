@@ -1,61 +1,44 @@
-[**Iniziare**](./getting-started.md) > **Installazione** > **uv** _(current)_
+# Installare GBabelDocUI con uv
 
----
+GBabelDocUI include già il sottoinsieme verificato di pdf2zh-next necessario. Non usare la CLI upstream al posto di `gbabeldocui`.
 
-> **Nota sull'ambito:** Questa pagina è un riferimento per l'[installazione ufficiale di `pdf2zh-next` tramite uv](https://github.com/PDFMathTranslate-next/PDFMathTranslate-next). Non documenta la Web UI di GBabelDocUI. Per la Web UI di GBabelDocUI, consulta [`USAGE_webui.md`](./USAGE_webui.md) e le istruzioni Docker. Non sostituire `pdf2zh_next` con `gbabeldocui`: gli argomenti della riga di comando non sono compatibili.
+## Requisiti
 
-### Installa PDFMathTranslate tramite uv
+- Python 3.10–3.13
+- Git
+- [uv](https://docs.astral.sh/uv/getting-started/installation/)
 
-#### Cos'è uv? Come installarlo?
+## Installare ed eseguire
 
-uv è un gestore di pacchetti e progetti Python estremamente veloce, scritto in Rust.
-<br>
-Per installare uv sul tuo computer, consulta [questo articolo](https://docs.astral.sh/uv/getting-started/installation/).
+```bash
+git clone https://github.com/SocialYjj/GBabelDocUI.git
+cd GBabelDocUI
+uv sync --frozen
+```
 
----
-
-#### Installazione
-
-1. Python installato (3.10 <= versione <= 3.12);
-
-2. Utilizza il seguente comando per usare il nostro pacchetto:
+=== "Linux/macOS"
 
     ```bash
-    pip install uv
-    uv tool install --python 3.12 pdf2zh-next
+    export GBABELDOCUI_COOKIE_SECURE=false
+    uv run gbabeldocui
     ```
 
-Dopo l'installazione, puoi iniziare la traduzione tramite la **riga di comando** o **WebUI**.
+=== "Windows PowerShell"
 
-!!! Warning
+    ```powershell
+    $env:GBABELDOCUI_COOKIE_SECURE = "false"
+    uv run gbabeldocui
+    ```
 
-    Se vedi l'errore `command not found: pdf2zh_next` durante l'esecuzione, configura le variabili d'ambiente come segue e riprova:
+Aprire quindi `http://127.0.0.1:7860/login.html`.
 
-    === "macOS e Linux"
+In produzione mantenere i cookie Secure, usare HTTPS e una sola istanza per directory dati.
 
-        Aggiungi quanto segue al tuo ~/.zshrc:
+## Ambiente di sviluppo
 
-        ```console
-        export PATH="$PATH:/Users/Username/.local/bin"
-        ```
-
-        Quindi riavvia il terminale
-
-    === "Windows"
-
-        Inserisci quanto segue in PowerShell:
-
-        ```powershell
-        $env:Path = "C:\Users\Username\.local\bin;$env:Path"
-        ```
-
-        Quindi riavvia il terminale
-
-> [!NOTE]
-> Se riscontri problemi durante l'utilizzo di WebUI, consulta [Utilizzo --> WebUI](./USAGE_webui.md).
-
-> [!NOTE]
-> Se riscontri problemi durante l'utilizzo della riga di comando, consulta [Utilizzo --> Riga di comando](./USAGE_commandline.md).
-
-<div align="right"> 
-<h6><small>Parte del contenuto di questa pagina è stata tradotta da GPT e potrebbe contenere errori.</small></h6>
+```bash
+uv sync --dev --frozen
+uv run pytest -q
+uv run ruff check gbabeldocui tests
+uv run ruff format --check gbabeldocui tests
+```

@@ -1,61 +1,39 @@
-よくある質問をまとめました。同じ問題に遭遇したユーザーのためにリストを提供しています。
+> This locale currently uses the canonical English text to avoid publishing outdated translated instructions.
 
-## GPU は必要ですか？
-- **質問**:
-プログラムは人工知能を使用して文書を認識および抽出するため、GPU は必要ですか？
+# Frequently asked questions
 
-- **回答**:
-**GPU は必要ありません。** ただし、GPU がある場合、プログラムは自動的にそれを使用してより高いパフォーマンスを発揮します。
+## Why did the browser not open automatically?
 
-## ダウンロードが中断されましたか？
-- **質問**:
-モデルのダウンロード中に以下の中断エラーが発生しました。どうすればよいですか？
+`gbabeldocui` starts the server but does not launch a browser. Open `http://127.0.0.1:7860/login.html` manually.
 
-  ![image](https://github.com/user-attachments/assets/3c4eed44-3d9b-4e2f-a224-a58edca718c2)
+## Why does local HTTP return to the login page?
 
-- **回答**:
-ネットワークが干渉を受けています。安定したネットワークリンクを使用するか、ネットワーク介入を回避してください。
+Secure cookies are enabled by default. For loopback HTTP only, set `GBABELDOCUI_COOKIE_SECURE=false` before starting the service. Public deployments must use HTTPS and keep the value `true`.
 
-## 最新バージョンに更新する方法は？
-- **質問**:
-最新バージョンの機能の一部を使用したいのですが、どのように更新すればよいですか？
+## Why can I not create the first administrator remotely?
 
-- **回答**:
-`pip install -U pdf2zh`
+Local setup is the default security boundary. For a trusted remote initialization, set a one-time high-entropy `GBABELDOCUI_SETUP_TOKEN`, complete setup, then remove the variable and restart the service.
 
+## Can several workers or containers share one data directory?
 
-## 以下のファイルは存在しません：example.pdf
-- **問題**:
-プログラムを実行する際、ユーザーは以下の出力を受け取ります：ドキュメントが見つからない場合、`以下のファイルは存在しません：example.pdf`。
+No. The application intentionally allows one process and one replica per `data/` directory. A second instance fails fast instead of corrupting task state.
 
-- **解決方法**:
-  - ファイルが存在するディレクトリでコマンドラインを開く、または
-  - pdf2zh の後にファイルのフルパスを直接入力する、または
-  - インタラクティブモード `pdf2zh -i` を使用してファイルを直接ドラッグ＆ドロップする
+## What happens after a restart?
 
+Task state and history are stored in SQLite. Incomplete tasks are reconciled during startup; completed, failed, and cancelled records follow the configured retention policy.
 
-## SSL エラーとその他のネットワーク問題
-- **問題**:
-Hugging Face のモデルをダウンロードする際、中国のユーザーはネットワークエラーに遭遇する可能性があります。例えば、[issue #55](https://github.com/PDFMathTranslate/PDFMathTranslate-next/issues/55)、[#70](https://github.com/PDFMathTranslate/PDFMathTranslate-next/issues/70) で報告されています。
+## Why is an API-key field empty after reloading settings?
 
-- **解決策**:
-  - [GFW をバイパスする](https://github.com/clash-verge-rev/clash-verge-rev).
-  - [Hugging Face ミラーを使用する](https://hf-mirror.com/).
-  - [ポータブル版を使用する](https://github.com/PDFMathTranslate/PDFMathTranslate-next?tab=readme-ov-file#method-ii-portable).
-  - [代わりに Docker を使用する](https://github.com/PDFMathTranslate/PDFMathTranslate-next#docker).
-  - [証明書を更新する](https://stackoverflow.com/questions/51925384/unable-to-get-local-issuer-certificate-when-using-requests)、[issue #55](https://github.com/PDFMathTranslate/PDFMathTranslate-next/issues/55) で提案されている通り。
+Saved keys are never returned to the browser. Leave the field empty to keep the existing key, or enter a new value to replace it.
 
-## ローカルホストにアクセスできない
-以下をご覧ください。
+## Where are uploads and results stored?
 
-## GUI を 0.0.0.0 で起動する際のエラー
-- **問題**:
-グローバルモードでプロキシソフトウェアを使用すると、Gradio が正常に起動しない場合があります。例として、[issue #77](https://github.com/PDFMathTranslate/PDFMathTranslate-next/issues/77) を参照してください。
+They are stored under the configured `GBABELDOCUI_DATA_DIR`, normally `data/users/<username>/`. This directory can contain credentials and private documents and must not be committed or published.
 
-- **解決策**:
-ルールモードを使用
+## How do I update?
 
-  ![image](https://github.com/user-attachments/assets/b1f2b16a-eb6a-4c03-995c-332ef1d82c96)
+For a source installation, use `git pull --ff-only`, then `uv sync --frozen`. For Compose, pull the source update and run `docker compose up -d --build`. Back up the protected data directory while the service is stopped before a major operational change.
 
-<div align="right"> 
-<h6><small>このページの一部のコンテンツは GPT によって翻訳されており、エラーが含まれている可能性があります。</small></h6>
+## Why was an upload rejected with HTTP 413?
+
+The request exceeded `GBABELDOCUI_MAX_UPLOAD_BYTES` or the streaming request-body limit. Raising the limit also increases storage and processing exposure; keep it bounded for public deployments.

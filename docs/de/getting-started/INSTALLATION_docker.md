@@ -1,57 +1,46 @@
-[**Erste Schritte**](./getting-started.md) > **Installation** > **Docker** _(aktuell)_
+# GBabelDocUI mit Docker Compose installieren
 
----
+Erforderlich sind Docker Engine mit Compose v2 und Git. Die Repository-Konfiguration enthält die benötigten Mounts und Sicherheitsgrenzen.
 
-### Installieren Sie GBabelDocUI über Docker
-
-#### Was ist Docker?
-
-[Docker](https://docs.docker.com/get-started/docker-overview/) ist eine offene Plattform für die Entwicklung, den Versand und die Ausführung von Anwendungen. Docker ermöglicht es Ihnen, Ihre Anwendungen von Ihrer Infrastruktur zu trennen, sodass Sie Software schnell bereitstellen können. Mit Docker können Sie Ihre Infrastruktur auf die gleiche Weise verwalten wie Ihre Anwendungen. Durch die Nutzung der Methoden von Docker für den Versand, die Tests und die Bereitstellung von Code können Sie die Verzögerung zwischen dem Schreiben von Code und dessen Ausführung in der Produktion erheblich reduzieren.
-
-#### Installation
-
-<h4>1. Start the application with the repository Compose file:</h4>
+## Lokal starten
 
 ```bash
+git clone https://github.com/SocialYjj/GBabelDocUI.git
+cd GBabelDocUI
+```
+
+Unter Linux muss das eingebundene Datenverzeichnis für UID/GID 10001 beschreibbar sein:
+
+```bash
+mkdir -p data
+sudo chown -R 10001:10001 data
 docker compose up -d --build
 ```
 
-> [!NOTE]
->
-> The Compose file persists `./data` for accounts, settings, uploads and outputs. The default port binding is `127.0.0.1:7860`; put the service behind an HTTPS reverse proxy before exposing it publicly.
->
-> After the first successful GitHub Actions publish, you can use the amd64 GHCR image instead:
->
-> ```bash
-> docker pull ghcr.io/socialyjj/gbabeldocui:latest
-> docker run -d --name gbabeldocui --restart unless-stopped -p 127.0.0.1:7860:7860 -v "$(pwd)/data:/app/data" ghcr.io/socialyjj/gbabeldocui:latest
-> ```
-<h4>2. Geben Sie diese URL in Ihrem Standardbrowser ein, um die WebUI-Seite zu öffnen:</h4>
+Öffnen Sie anschließend `http://127.0.0.1:7860/login.html`.
 
-```
-http://localhost:7860/
+## Über HTTPS veröffentlichen
+
+Konfigurieren Sie zuerst einen HTTPS-Reverse-Proxy und starten Sie Compose mindestens mit:
+
+```bash
+export GBABELDOCUI_COOKIE_SECURE=true
+export GBABELDOCUI_SETUP_TOKEN='replace-with-a-long-random-one-time-value'
+docker compose up -d --build
 ```
 
-> [!NOTE]
-> Wenn Sie Probleme bei der Verwendung von WebUI haben, lesen Sie bitte [Verwendung --> WebUI](./USAGE_webui.md).
+Verwenden Sie das Setup-Token nur für die entfernte Erstanlage des Administrators. Entfernen Sie es danach und starten Sie den Dienst neu.
 
-> [!NOTE]
-> Wenn Sie Probleme bei der Verwendung der Kommandozeile haben, lesen Sie bitte [Verwendung --> Kommandozeile](./USAGE_commandline.md).
-<!-- 
-#### For docker deployment on cloud service:
+Skalieren Sie den Dienst nicht und verwenden Sie keine mehreren Uvicorn-Worker für dasselbe Datenverzeichnis.
 
-<div>
-<a href="https://www.heroku.com/deploy?template=https://github.com/GBabelDocUI/GBabelDocUI-next">
-  <img src="https://www.herokucdn.com/deploy/button.svg" alt="Deploy" height="26"></a>
-<a href="https://render.com/deploy">
-  <img src="https://render.com/images/deploy-to-render-button.svg" alt="Deploy to Koyeb" height="26"></a>
-<a href="https://zeabur.com/templates/5FQIGX?referralCode=reycn">
-  <img src="https://zeabur.com/button.svg" alt="Deploy on Zeabur" height="26"></a>
-<a href="https://app.koyeb.com/deploy?type=git&builder=buildpack&repository=github.com/GBabelDocUI/GBabelDocUI-next&branch=main&name=pdf-math-translate">
-  <img src="https://www.koyeb.com/static/images/deploy/button.svg" alt="Deploy to Koyeb" height="26"></a>
-</div>
+## Persistente Daten
 
--->
+- `./data:/app/data`: accounts, settings, tasks, uploads, and outputs.
+- `babeldoc-cache:/cache`: BabelDOC models and font caches.
+- `/tmp`: bounded temporary filesystem.
 
-<div align="right"> 
-<h6><small>Ein Teil des Inhalts dieser Seite wurde von GPT übersetzt und kann Fehler enthalten.</small></h6>
+```bash
+docker compose ps
+docker compose logs --tail 200 gbabeldocui
+docker compose down
+```

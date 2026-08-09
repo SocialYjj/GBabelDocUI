@@ -9,18 +9,23 @@ This module provides REST API endpoints for:
 """
 
 import asyncio
+import functools
 import ipaddress
 import json
 import logging
+import math
 import os
 import re
+import secrets
 import shutil
+import socket
 import tempfile
 import threading
 import time
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime
+from datetime import timedelta
 from datetime import timezone
 from pathlib import Path
 from urllib.parse import urlparse
@@ -29,23 +34,27 @@ from fastapi import Depends
 from fastapi import FastAPI
 from fastapi import File
 from fastapi import Form
-from fastapi import Header
 from fastapi import HTTPException
 from fastapi import Query
 from fastapi import Request
+from fastapi import Response
 from fastapi import UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from filelock import FileLock
-from pdf2zh_next import __version__
-from pdf2zh_next.config.model import SettingsModel
-from pdf2zh_next.high_level import do_translate_async_stream
+from filelock import Timeout as FileLockTimeout
 from pydantic import BaseModel
 from pydantic import StrictBool
 from starlette.background import BackgroundTask
+from starlette.datastructures import Headers
 
+from gbabeldocui import __version__ as gbabeldocui_version
+from gbabeldocui._vendor.pdf2zh_next.config.model import SettingsModel
+from gbabeldocui._vendor.pdf2zh_next.high_level import do_translate_async_stream
 from gbabeldocui.auth import AuthenticationError
+from gbabeldocui.auth import UserDataCleanupError
 from gbabeldocui.auth import UserManager
 from gbabeldocui.translation_task_store import ActiveTaskLimitError
 from gbabeldocui.translation_task_store import GlobalActiveTaskLimitError
@@ -62,6 +71,8 @@ DEFAULT_MAX_USERS = 1000
 DEFAULT_AUTH_ATTEMPT_LIMIT = 5
 DEFAULT_AUTH_ATTEMPT_WINDOW_SECONDS = 300
 DEFAULT_ORPHAN_UPLOAD_TTL_SECONDS = 7 * 24 * 60 * 60
+DEFAULT_TASK_RETENTION_DAYS = 90
+DEFAULT_RETENTION_GRACE_DAYS = 7
 ORPHAN_UPLOAD_CLEANUP_INTERVAL_SECONDS = 6 * 60 * 60
 UPLOAD_CHUNK_BYTES = 1024 * 1024
 MAX_HISTORY_PAGE_SIZE = 200
@@ -70,8 +81,18 @@ MAX_FILENAME_UTF8_BYTES = 240
 MAX_SETTINGS_JSON_BYTES = 256 * 1024
 MAX_SETTINGS_FILE_BYTES = MAX_SETTINGS_JSON_BYTES * 2
 MAX_SETTINGS_IMPORT_BYTES = MAX_SETTINGS_FILE_BYTES
+MAX_JSON_BODY_BYTES = 64 * 1024
 PDF_HEADER_SCAN_BYTES = 1024
-MAX_CONFIGURED_POOL_WORKERS = 1000
+MAX_CONFIGURED_POOL_WORKERS = 64
+MAX_CONFIGURED_QPS = 20
+MAX_CONFIGURED_RPM = 1200
+MAX_PDF_PAGES = 5000
+MAX_FORMULA_PATTERN_LENGTH = 256
+SESSION_COOKIE_NAME = "gbabeldocui_session"
+CSRF_COOKIE_NAME = "gbabeldocui_csrf"
+CSRF_HEADER_NAME = "X-CSRF-Token"
+COOKIE_MAX_AGE_SECONDS = 24 * 60 * 60
+SETUP_TOKEN = os.getenv("GBABELDOCUI_SETUP_TOKEN", "").strip()
 SUPPORTED_SERVICES = frozenset(
     {
         "SiliconFlowFree",
@@ -105,12 +126,55 @@ ENDPOINT_SETTING_NAMES = frozenset(
         "rpc_doclayout",
     }
 )
-PRIVILEGED_SETTING_NAMES = ENDPOINT_SETTING_NAMES | {"claude_code_path"}
+PRIVILEGED_SETTING_NAMES = frozenset(
+    {"ollama_host", "rpc_doclayout", "claude_code_path"}
+)
+SENSITIVE_SETTING_SUFFIXES = (
+    "_api_key",
+    "_auth_key",
+    "_secret_id",
+    "_secret_key",
+)
+TRUSTED_PROVIDER_HOSTS = frozenset({"api.openai.com", "api.siliconflow.cn"})
+TRUSTED_PROVIDER_HOST_SUFFIXES = (".openai.azure.com",)
+PUBLIC_MUTATING_API_PATHS = frozenset(
+    {
+        "/api/auth/setup",
+        "/api/auth/login",
+        "/api/auth/register/public",
+    }
+)
 
 
 def _utc_now() -> datetime:
     """Return a naive UTC timestamp for the existing JSON format."""
     return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+def _reject_non_finite_json_number(value: str):
+    raise ValueError(f"Non-finite JSON number is not allowed: {value}")
+
+
+def _load_json_value(serialized_value: str | bytes) -> object:
+    """Parse standards-compliant JSON and reject NaN or infinity values."""
+    return json.loads(
+        serialized_value,
+        parse_constant=_reject_non_finite_json_number,
+    )
+
+
+def _configure_babeldoc_formula_cache() -> None:
+    """Replace BabelDOC's unbounded formula-font cache with a bounded cache."""
+    from babeldoc.format.pdf.document_il.utils import formular_helper
+
+    current_matcher = formular_helper.is_formulas_font
+    cache_parameters = getattr(current_matcher, "cache_parameters", None)
+    if cache_parameters and cache_parameters().get("maxsize") == 4096:
+        return
+    uncached_matcher = getattr(current_matcher, "__wrapped__", current_matcher)
+    formular_helper.is_formulas_font = functools.lru_cache(maxsize=4096)(
+        uncached_matcher
+    )
 
 
 try:
@@ -164,6 +228,22 @@ ORPHAN_UPLOAD_TTL_SECONDS = _positive_environment_int(
     "GBABELDOCUI_ORPHAN_UPLOAD_TTL_SECONDS",
     DEFAULT_ORPHAN_UPLOAD_TTL_SECONDS,
 )
+TASK_RETENTION_DAYS = _positive_environment_int(
+    "GBABELDOCUI_TASK_RETENTION_DAYS", DEFAULT_TASK_RETENTION_DAYS
+)
+RETENTION_GRACE_DAYS = _positive_environment_int(
+    "GBABELDOCUI_RETENTION_GRACE_DAYS", DEFAULT_RETENTION_GRACE_DAYS
+)
+COOKIE_SECURE = _environment_bool("GBABELDOCUI_COOKIE_SECURE", default=True)
+RETENTION_MARKER_NAME = ".gbabeldocui-retention-v1"
+TERMINAL_RETENTION_BATCH_SIZE = 100
+MUTATING_HTTP_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
+MUTATING_REQUEST_BODY_LIMITS = {
+    "/api/upload": MAX_UPLOAD_BYTES + 1024 * 1024,
+    "/api/settings/import": MAX_SETTINGS_IMPORT_BYTES + 1024 * 1024,
+    "/api/translate": MAX_SETTINGS_JSON_BYTES + 1024 * 1024,
+    "/api/settings": MAX_SETTINGS_JSON_BYTES,
+}
 
 
 class AuthenticationAttemptLimiter:
@@ -174,10 +254,12 @@ class AuthenticationAttemptLimiter:
         self.window_seconds = window_seconds
         self._attempts: dict[str, list[float]] = {}
         self._lock = threading.Lock()
+        self._last_global_cleanup = 0.0
 
     def retry_after(self, key: str) -> int | None:
         now = time.monotonic()
         with self._lock:
+            self._cleanup_all_expired(now)
             attempts = self._active_attempts(key, now)
             if len(attempts) < self.maximum_attempts:
                 return None
@@ -186,6 +268,7 @@ class AuthenticationAttemptLimiter:
     def record_failure(self, key: str) -> None:
         now = time.monotonic()
         with self._lock:
+            self._cleanup_all_expired(now)
             attempts = self._active_attempts(key, now)
             attempts.append(now)
             self._attempts[key] = attempts
@@ -205,12 +288,77 @@ class AuthenticationAttemptLimiter:
             self._attempts.pop(key, None)
         return attempts
 
+    def _cleanup_all_expired(self, now: float) -> None:
+        if now - self._last_global_cleanup < 60:
+            return
+        cutoff = now - self.window_seconds
+        expired_keys = [
+            key
+            for key, attempts in self._attempts.items()
+            if not attempts or attempts[-1] <= cutoff
+        ]
+        for key in expired_keys:
+            self._attempts.pop(key, None)
+        self._last_global_cleanup = now
+
+
+def _retention_marker_path() -> Path:
+    return user_manager.data_dir / RETENTION_MARKER_NAME
+
+
+def _retention_cleanup_is_ready() -> bool:
+    """Create the upgrade marker and wait through the configured grace period."""
+    marker_path = _retention_marker_path()
+    try:
+        marker_path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            marker_path.touch(exist_ok=False)
+        except FileExistsError:
+            pass
+        marker_time = datetime.fromtimestamp(
+            marker_path.stat().st_mtime, tz=timezone.utc
+        ).replace(tzinfo=None)
+    except OSError:
+        logger.exception("Cannot inspect the task-retention upgrade marker")
+        return False
+    return _utc_now() - marker_time >= timedelta(days=RETENTION_GRACE_DAYS)
+
+
+async def _cleanup_expired_terminal_tasks_once() -> int:
+    """Delete one bounded batch of expired terminal tasks and owned files."""
+    retention_cutoff = _utc_now() - timedelta(days=TASK_RETENTION_DAYS)
+    removed_count = 0
+    expired_tasks = await asyncio.to_thread(
+        task_store.list_expired_terminal_tasks,
+        completed_before=retention_cutoff,
+        limit=TERMINAL_RETENTION_BATCH_SIZE,
+    )
+    for expired_task in expired_tasks:
+        artifacts_removed = await asyncio.to_thread(
+            _cleanup_translation_artifacts,
+            expired_task,
+            user_manager.get_user_dir(expired_task["username"]),
+        )
+        if not artifacts_removed:
+            continue
+        record_removed = await asyncio.to_thread(
+            task_store.delete_expired_terminal_task,
+            expired_task["task_id"],
+            completed_before=retention_cutoff,
+        )
+        if record_removed:
+            removed_count += 1
+    if removed_count:
+        logger.info("Removed %s expired terminal translation task(s)", removed_count)
+    return removed_count
+
 
 # Persistent application state. Runtime task handles are only used for cancellation;
 # status, progress, ownership and output paths are stored in SQLite.
 user_manager = UserManager()
 task_store = TranslationTaskStore(user_manager.db_path)
 active_tasks: dict[str, asyncio.Task[None]] = {}
+active_task_settings: dict[str, dict] = {}
 timed_out_tasks: set[str] = set()
 deleting_usernames: set[str] = set()
 deleting_usernames_lock = threading.Lock()
@@ -229,38 +377,60 @@ authentication_limiter = AuthenticationAttemptLimiter(
 async def application_lifespan(_app: FastAPI):
     """Initialize persistent state and stop in-flight work on shutdown."""
     logger.info("PDFMathTranslate Web API starting...")
-    user_manager.validate_user_directory_integrity()
-    user_manager.cleanup_expired_sessions()
-    for recovered_task in task_store.recover_interrupted_tasks():
-        _cleanup_translation_artifacts(
-            recovered_task,
-            user_manager.get_user_dir(recovered_task["username"]),
-        )
-        task_store.synchronize_history(recovered_task)
-    orphan_cleanup_handle = asyncio.create_task(
-        _periodic_orphan_upload_cleanup(),
-        name="orphan-upload-cleanup",
+    instance_lock = FileLock(
+        str(user_manager.data_dir / ".gbabeldocui-instance.lock"),
+        timeout=0,
+        thread_local=False,
     )
-    logger.info("Web API ready")
+    lock_acquired = False
+    orphan_cleanup_handle: asyncio.Task[None] | None = None
     try:
+        try:
+            await asyncio.to_thread(instance_lock.acquire)
+        except FileLockTimeout as exc:
+            raise RuntimeError(
+                "Another GBabelDocUI instance already owns this data directory"
+            ) from exc
+        lock_acquired = True
+        await asyncio.to_thread(user_manager.validate_user_directory_integrity)
+        await asyncio.to_thread(user_manager.cleanup_expired_sessions)
+        _configure_babeldoc_formula_cache()
+        for recovered_task in await asyncio.to_thread(
+            task_store.recover_interrupted_tasks
+        ):
+            await asyncio.to_thread(
+                _cleanup_translation_artifacts,
+                recovered_task,
+                user_manager.get_user_dir(recovered_task["username"]),
+            )
+        if await asyncio.to_thread(_retention_cleanup_is_ready):
+            await _cleanup_expired_terminal_tasks_once()
+        orphan_cleanup_handle = asyncio.create_task(
+            _periodic_orphan_upload_cleanup(),
+            name="orphan-upload-cleanup",
+        )
+        logger.info("Web API ready")
         yield
     finally:
-        orphan_cleanup_handle.cancel()
+        if orphan_cleanup_handle is not None:
+            orphan_cleanup_handle.cancel()
         running_handles = list(active_tasks.values())
         for task_handle in running_handles:
             task_handle.cancel()
-        await asyncio.gather(
-            orphan_cleanup_handle,
-            *running_handles,
-            return_exceptions=True,
-        )
+        handles_to_wait = [*running_handles]
+        if orphan_cleanup_handle is not None:
+            handles_to_wait.insert(0, orphan_cleanup_handle)
+        if handles_to_wait:
+            await asyncio.gather(*handles_to_wait, return_exceptions=True)
+        if lock_acquired:
+            await asyncio.to_thread(instance_lock.release)
         logger.info("PDFMathTranslate Web API shutting down...")
 
 
 # Initialize FastAPI app
 app = FastAPI(
-    title="PDFMathTranslate API",
-    version="2.0.0",
+    title="GBabelDocUI API",
+    version=gbabeldocui_version,
     lifespan=application_lifespan,
 )
 
@@ -274,16 +444,176 @@ if allowed_origins:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=list(allowed_origins),
-        allow_credentials=False,
+        allow_credentials=True,
         allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
-        allow_headers=["Authorization", "Content-Type"],
+        allow_headers=["Content-Type", CSRF_HEADER_NAME],
     )
+
+
+def _prepare_http_response(request: Request, response: Response) -> Response:
+    """Apply browser response headers and issue the double-submit CSRF cookie."""
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; script-src 'self'; "
+        "style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; "
+        "font-src 'self'; connect-src 'self'; object-src 'none'; "
+        "base-uri 'self'; frame-ancestors 'none'; form-action 'self'"
+    )
+    if request.url.path.startswith("/api/"):
+        response.headers["Cache-Control"] = "no-store"
+    if COOKIE_SECURE:
+        response.headers["Strict-Transport-Security"] = (
+            "max-age=31536000; includeSubDomains"
+        )
+    if not request.cookies.get(CSRF_COOKIE_NAME):
+        response.set_cookie(
+            CSRF_COOKIE_NAME,
+            secrets.token_urlsafe(32),
+            max_age=COOKIE_MAX_AGE_SECONDS,
+            secure=COOKIE_SECURE,
+            httponly=False,
+            samesite="strict",
+            path="/",
+        )
+    return response
+
+
+class RequestBodyLimitMiddleware:
+    """Enforce request limits without relying on framework parser exceptions."""
+
+    def __init__(self, application):
+        self.application = application
+
+    async def __call__(self, scope, receive, send):
+        if (
+            scope["type"] != "http"
+            or scope.get("method") not in MUTATING_HTTP_METHODS
+            or not scope.get("path", "").startswith("/api/")
+        ):
+            await self.application(scope, receive, send)
+            return
+
+        body_limit = MUTATING_REQUEST_BODY_LIMITS.get(
+            scope.get("path", ""), MAX_JSON_BODY_BYTES
+        )
+        headers = Headers(scope=scope)
+        content_length = headers.get("content-length")
+        if content_length:
+            try:
+                declared_bytes = int(content_length)
+            except ValueError:
+                await self._send_error(
+                    scope, receive, send, 400, "Invalid Content-Length"
+                )
+                return
+            if declared_bytes < 0:
+                await self._send_error(
+                    scope, receive, send, 400, "Invalid Content-Length"
+                )
+                return
+            if declared_bytes > body_limit:
+                await self._send_error(
+                    scope, receive, send, 413, "Request body is too large"
+                )
+                return
+
+        received_bytes = 0
+        body_limit_exceeded = False
+
+        async def limited_receive():
+            nonlocal body_limit_exceeded, received_bytes
+            if body_limit_exceeded:
+                return {"type": "http.request", "body": b"", "more_body": False}
+            message = await receive()
+            if message.get("type") != "http.request":
+                return message
+            received_bytes += len(message.get("body", b""))
+            if received_bytes > body_limit:
+                body_limit_exceeded = True
+                return {"type": "http.request", "body": b"", "more_body": False}
+            return message
+
+        buffered_messages = []
+
+        async def buffered_send(message):
+            buffered_messages.append(message)
+
+        try:
+            await self.application(scope, limited_receive, buffered_send)
+        except Exception:
+            if not body_limit_exceeded:
+                raise
+
+        if body_limit_exceeded:
+            await self._send_error(
+                scope, receive, send, 413, "Request body is too large"
+            )
+            return
+        for message in buffered_messages:
+            await send(message)
+
+    @staticmethod
+    async def _send_error(scope, receive, send, status_code: int, detail: str):
+        request = Request(scope)
+        response = _prepare_http_response(
+            request,
+            JSONResponse(status_code=status_code, content={"detail": detail}),
+        )
+        await response(scope, receive, send)
+
+
+app.add_middleware(RequestBodyLimitMiddleware)
+
+
+@app.middleware("http")
+async def add_security_headers_and_csrf_cookie(request: Request, call_next):
+    response = await call_next(request)
+    return _prepare_http_response(request, response)
+
+
+@app.middleware("http")
+async def authenticate_and_limit_mutating_requests(request: Request, call_next):
+    """Validate mutating requests before their body is parsed."""
+    is_mutating_api_request = (
+        request.url.path.startswith("/api/") and request.method in MUTATING_HTTP_METHODS
+    )
+    if is_mutating_api_request:
+        csrf_cookie = request.cookies.get(CSRF_COOKIE_NAME, "")
+        csrf_header = request.headers.get(CSRF_HEADER_NAME, "")
+        if (
+            not csrf_cookie
+            or not csrf_header
+            or not secrets.compare_digest(csrf_cookie, csrf_header)
+        ):
+            return _prepare_http_response(
+                request,
+                JSONResponse(
+                    status_code=403, content={"detail": "CSRF validation failed"}
+                ),
+            )
+        if request.url.path not in PUBLIC_MUTATING_API_PATHS:
+            token = request.cookies.get(SESSION_COOKIE_NAME, "").strip()
+            if not token or not await asyncio.to_thread(
+                user_manager.validate_token, token
+            ):
+                response = JSONResponse(
+                    status_code=401, content={"detail": "Invalid or expired session"}
+                )
+                _clear_session_cookie(response)
+                return _prepare_http_response(request, response)
+
+    return await call_next(request)
 
 
 # Pydantic models for request/response
 class SetupRequest(BaseModel):
     username: str
     password: str
+    setup_token: str | None = None
 
 
 class LoginRequest(BaseModel):
@@ -385,6 +715,8 @@ def _read_float_setting(
         normalized_setting = float(raw_setting)
     except (TypeError, ValueError) as exc:
         raise ValueError(f"{setting_name} must be a number") from exc
+    if not math.isfinite(normalized_setting):
+        raise ValueError(f"{setting_name} must be a finite number")
     if normalized_setting < minimum:
         raise ValueError(f"{setting_name} must be at least {minimum}")
     if maximum is not None and normalized_setting > maximum:
@@ -417,6 +749,9 @@ def _validate_endpoint_url(
         raise ValueError(f"{setting_name} contains an invalid port")
 
     hostname = parsed_endpoint.hostname.rstrip(".").lower()
+    trusted_provider_host = hostname in TRUSTED_PROVIDER_HOSTS or hostname.endswith(
+        TRUSTED_PROVIDER_HOST_SUFFIXES
+    )
     private_host = hostname == "localhost" or hostname.endswith(".localhost")
     try:
         host_address = ipaddress.ip_address(hostname)
@@ -433,11 +768,86 @@ def _validate_endpoint_url(
         )
     else:
         private_host = private_host or hostname.endswith(".local")
-    if private_host and not (allow_private or ALLOW_PRIVATE_ENDPOINTS):
+    if host_address is None and not trusted_provider_host:
+        try:
+            resolved_addresses = {
+                ipaddress.ip_address(address[4][0])
+                for address in socket.getaddrinfo(
+                    hostname,
+                    endpoint_port or (443 if parsed_endpoint.scheme == "https" else 80),
+                    type=socket.SOCK_STREAM,
+                )
+            }
+        except (OSError, ValueError) as exc:
+            raise ValueError(f"{setting_name} hostname cannot be resolved") from exc
+        if not resolved_addresses:
+            raise ValueError(f"{setting_name} hostname cannot be resolved")
+        private_host = private_host or any(
+            not resolved_address.is_global for resolved_address in resolved_addresses
+        )
+
+    private_allowed = allow_private or ALLOW_PRIVATE_ENDPOINTS
+    if private_host and not private_allowed:
         raise ValueError(
             f"{setting_name} cannot target localhost, private, loopback, or link-local addresses"
         )
+    if parsed_endpoint.scheme != "https" and not private_host:
+        raise ValueError(f"{setting_name} must use HTTPS for remote endpoints")
     return normalized_endpoint
+
+
+def _validate_safe_formula_pattern(pattern: object, setting_name: str) -> str:
+    """Accept the small regex subset needed for font and character matching."""
+    if not isinstance(pattern, str):
+        raise ValueError(f"{setting_name} must be a string")
+    normalized_pattern = pattern.strip()
+    if not normalized_pattern:
+        return ""
+    if len(normalized_pattern) > MAX_FORMULA_PATTERN_LENGTH:
+        raise ValueError(
+            f"{setting_name} must not exceed {MAX_FORMULA_PATTERN_LENGTH} characters"
+        )
+    if re.search(r"\(\?|\\[1-9]|[+*{}]", normalized_pattern):
+        raise ValueError(
+            f"{setting_name} contains unsupported high-cost regular expression syntax"
+        )
+    try:
+        re.compile(normalized_pattern)
+    except re.error as exc:
+        raise ValueError(f"{setting_name} is not a valid regular expression") from exc
+    return normalized_pattern
+
+
+def _parse_page_range(page_range: str, page_count: int) -> str:
+    """Validate and normalize a one-based page range against a PDF."""
+    if page_count <= 0:
+        raise ValueError("The PDF contains no pages")
+    if len(page_range) > 200:
+        raise ValueError("pages contains an invalid page range")
+
+    normalized_segments: list[str] = []
+    selected_pages: set[int] = set()
+    for raw_segment in page_range.split(","):
+        segment = raw_segment.strip()
+        match = re.fullmatch(r"([1-9][0-9]*)(?:\s*-\s*([1-9][0-9]*))?", segment)
+        if match is None:
+            raise ValueError("pages contains an invalid page range")
+        first_page = int(match.group(1))
+        last_page = int(match.group(2) or first_page)
+        if first_page > last_page:
+            raise ValueError("pages range start must not exceed its end")
+        if last_page > page_count:
+            raise ValueError(f"pages must not exceed the PDF page count ({page_count})")
+        segment_pages = set(range(first_page, last_page + 1))
+        if selected_pages.intersection(segment_pages):
+            raise ValueError("pages contains overlapping or duplicate ranges")
+        selected_pages.update(segment_pages)
+        normalized_segments.append(
+            str(first_page) if first_page == last_page else f"{first_page}-{last_page}"
+        )
+    if not normalized_segments:
+        raise ValueError("pages contains an invalid page range")
+    return ",".join(normalized_segments)
 
 
 def _read_integer_setting(
@@ -490,13 +900,21 @@ def _build_rate_limit_parameters(
     normalized_mode = str(raw_mode or "custom").strip().lower()
     if normalized_mode == "rpm":
         requests_per_minute = _read_integer_setting(
-            user_settings, rpm_name, 240, minimum=60
+            user_settings,
+            rpm_name,
+            240,
+            minimum=60,
+            maximum=MAX_CONFIGURED_RPM,
         )
         qps = max(1, requests_per_minute // 60)
         pool_workers = min(MAX_CONFIGURED_POOL_WORKERS, qps * 10)
     elif normalized_mode == "concurrent":
         concurrent_threads = _read_integer_setting(
-            user_settings, concurrent_name, 40, minimum=1
+            user_settings,
+            concurrent_name,
+            40,
+            minimum=1,
+            maximum=MAX_CONFIGURED_POOL_WORKERS,
         )
         pool_workers = min(
             MAX_CONFIGURED_POOL_WORKERS,
@@ -504,7 +922,13 @@ def _build_rate_limit_parameters(
         )
         qps = max(1, pool_workers)
     elif normalized_mode == "custom":
-        qps = _read_integer_setting(user_settings, qps_name, default_qps, minimum=1)
+        qps = _read_integer_setting(
+            user_settings,
+            qps_name,
+            default_qps,
+            minimum=1,
+            maximum=MAX_CONFIGURED_QPS,
+        )
         pool_worker_count = _read_integer_setting(
             user_settings,
             workers_name,
@@ -648,8 +1072,8 @@ def _read_settings_file_unlocked(settings_file: Path) -> dict:
     except OSError as exc:
         raise ValueError("User settings file is invalid or unreadable") from exc
     try:
-        settings = json.loads(settings_file.read_text(encoding="utf-8"))
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        settings = _load_json_value(settings_file.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
         raise ValueError("User settings file is invalid or unreadable") from exc
     if not isinstance(settings, dict):
         raise ValueError("User settings must be a JSON object")
@@ -676,10 +1100,9 @@ def _validate_saved_setting_values(settings: dict) -> None:
         raise ValueError("page_range is invalid")
     custom_pages = settings.get("custom_pages")
     if custom_pages not in (None, ""):
-        if not isinstance(custom_pages, str) or len(custom_pages) > 200:
+        if not isinstance(custom_pages, str):
             raise ValueError("custom_pages must be a short page range string")
-        if not re.fullmatch(r"[0-9,\-\s]+", custom_pages):
-            raise ValueError("custom_pages contains invalid characters")
+        settings["custom_pages"] = _parse_page_range(custom_pages, MAX_PDF_PAGES)
     watermark_mode = settings.get("watermark_mode", "watermarked")
     if not isinstance(watermark_mode, str) or watermark_mode not in {
         "watermarked",
@@ -694,16 +1117,16 @@ def _validate_saved_setting_values(settings: dict) -> None:
 
     integer_limits = {
         "min_text_length": (0, 10000),
-        "max_pages_per_part": (0, 100000),
-        "rpm": (60, 100000),
+        "max_pages_per_part": (0, MAX_PDF_PAGES),
+        "rpm": (60, MAX_CONFIGURED_RPM),
         "concurrent_threads": (1, MAX_CONFIGURED_POOL_WORKERS),
-        "custom_qps": (1, MAX_CONFIGURED_POOL_WORKERS),
+        "custom_qps": (1, MAX_CONFIGURED_QPS),
         "custom_workers": (0, MAX_CONFIGURED_POOL_WORKERS),
-        "term_rpm": (60, 100000),
+        "term_rpm": (60, MAX_CONFIGURED_RPM),
         "term_concurrent": (1, MAX_CONFIGURED_POOL_WORKERS),
-        "term_qps": (1, MAX_CONFIGURED_POOL_WORKERS),
+        "term_qps": (1, MAX_CONFIGURED_QPS),
         "term_workers": (0, MAX_CONFIGURED_POOL_WORKERS),
-        "qps": (1, MAX_CONFIGURED_POOL_WORKERS),
+        "qps": (1, MAX_CONFIGURED_QPS),
     }
     for setting_name, (minimum, maximum) in integer_limits.items():
         if setting_name in settings:
@@ -714,6 +1137,10 @@ def _validate_saved_setting_values(settings: dict) -> None:
                 minimum=minimum,
                 maximum=maximum,
             )
+
+    max_pages_per_part = settings.get("max_pages_per_part", 0)
+    if 0 < max_pages_per_part < 50:
+        raise ValueError("max_pages_per_part must be 0 or at least 50")
 
     float_limits = {
         "split_factor": (0.1, 1.0),
@@ -728,6 +1155,59 @@ def _validate_saved_setting_values(settings: dict) -> None:
                 minimum,
                 minimum=minimum,
                 maximum=maximum,
+            )
+
+    text_limits = {
+        "lang_from": 64,
+        "lang_to": 64,
+        "primary_font": 256,
+        "custom_system_prompt": 32000,
+        "openai_model": 256,
+        "azure_openai_model": 256,
+        "azure_openai_api_version": 64,
+        "gemini_model": 256,
+        "deepl_model": 256,
+        "ollama_model": 256,
+        "siliconflow_model": 256,
+        "deepseek_model": 256,
+        "zhipu_model": 256,
+        "claude_model": 256,
+        "tencent_secret_id": 512,
+        "tencent_secret_key": 4096,
+    }
+    for setting_name, maximum_length in text_limits.items():
+        if setting_name not in settings or settings[setting_name] is None:
+            continue
+        setting_value = settings[setting_name]
+        if not isinstance(setting_value, str):
+            raise ValueError(f"{setting_name} must be a string")
+        if len(setting_value) > maximum_length:
+            raise ValueError(
+                f"{setting_name} must not exceed {maximum_length} characters"
+            )
+
+    for setting_name in (
+        "openai_api_key",
+        "azure_openai_api_key",
+        "gemini_api_key",
+        "deepl_auth_key",
+        "siliconflow_api_key",
+        "deepseek_api_key",
+        "zhipu_api_key",
+        "claude_api_key",
+    ):
+        if setting_name not in settings or settings[setting_name] is None:
+            continue
+        setting_value = settings[setting_name]
+        if not isinstance(setting_value, str):
+            raise ValueError(f"{setting_name} must be a string")
+        if len(setting_value) > 4096:
+            raise ValueError(f"{setting_name} must not exceed 4096 characters")
+
+    for setting_name in ("formula_font_pattern", "formula_char_pattern"):
+        if setting_name in settings:
+            settings[setting_name] = _validate_safe_formula_pattern(
+                settings[setting_name], setting_name
             )
 
 
@@ -761,6 +1241,13 @@ def _merge_user_settings(
 
     merged_settings = dict(existing_settings)
     for setting_name, setting_value in incoming_settings.items():
+        if (
+            setting_name.casefold().endswith(SENSITIVE_SETTING_SUFFIXES)
+            and isinstance(setting_value, str)
+            and not setting_value.strip()
+            and existing_settings.get(setting_name)
+        ):
+            continue
         if setting_name in PRIVILEGED_SETTING_NAMES and not is_admin:
             existing_value = existing_settings.get(setting_name)
             existing_is_empty = existing_value is None or (
@@ -783,7 +1270,10 @@ def _merge_user_settings(
 
     try:
         serialized_settings = json.dumps(
-            merged_settings, ensure_ascii=False, separators=(",", ":")
+            merged_settings,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            allow_nan=False,
         )
     except (TypeError, ValueError) as exc:
         raise ValueError("Settings must contain JSON-compatible values") from exc
@@ -813,7 +1303,13 @@ def _write_json_file(file_path: Path, payload: object) -> None:
             delete=False,
         ) as temporary_file:
             temporary_path = Path(temporary_file.name)
-            json.dump(payload, temporary_file, indent=2, ensure_ascii=False)
+            json.dump(
+                payload,
+                temporary_file,
+                indent=2,
+                ensure_ascii=False,
+                allow_nan=False,
+            )
             temporary_file.write("\n")
             temporary_file.flush()
             os.fsync(temporary_file.fileno())
@@ -823,30 +1319,107 @@ def _write_json_file(file_path: Path, payload: object) -> None:
             temporary_path.unlink(missing_ok=True)
 
 
-def _is_readable_pdf(file_path: Path) -> bool:
-    """Perform a lightweight parser check before queuing the translation."""
+def _merge_and_write_settings_file(
+    settings_file: Path, incoming_settings: dict, *, is_admin: bool
+) -> dict:
+    lock_file = settings_file.with_name(f".{settings_file.name}.lock")
+    with FileLock(str(lock_file), timeout=30):
+        existing_settings = _read_settings_file_unlocked(settings_file)
+        merged_settings = _merge_user_settings(
+            existing_settings, incoming_settings, is_admin=is_admin
+        )
+        _write_json_file(settings_file, merged_settings)
+    return merged_settings
+
+
+def _replace_settings_file(settings_file: Path, settings: dict) -> None:
+    lock_file = settings_file.with_name(f".{settings_file.name}.lock")
+    with FileLock(str(lock_file), timeout=30):
+        _write_json_file(settings_file, settings)
+
+
+def _pdf_page_count(file_path: Path) -> int:
+    """Validate a PDF with PyMuPDF and return its positive page count."""
     with file_path.open("rb") as source_file:
         if b"%PDF-" not in source_file.read(PDF_HEADER_SCAN_BYTES):
-            return False
+            raise ValueError("The uploaded file is not a PDF")
     try:
         import fitz
 
         with fitz.open(filename=str(file_path)) as document:
-            _ = document.page_count
-    except (OSError, RuntimeError, ValueError):
+            page_count = int(document.page_count)
+    except (OSError, RuntimeError, ValueError) as exc:
+        raise ValueError("The uploaded file is not a readable PDF") from exc
+    if page_count <= 0:
+        raise ValueError("The PDF contains no pages")
+    if page_count > MAX_PDF_PAGES:
+        raise ValueError(f"The PDF exceeds the {MAX_PDF_PAGES} page limit")
+    return page_count
+
+
+def _session_token(request: Request) -> str:
+    token = request.cookies.get(SESSION_COOKIE_NAME, "").strip()
+    if not token:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    return token
+
+
+def _set_session_cookie(response: Response, token: str) -> None:
+    response.set_cookie(
+        SESSION_COOKIE_NAME,
+        token,
+        max_age=COOKIE_MAX_AGE_SECONDS,
+        secure=COOKIE_SECURE,
+        httponly=True,
+        samesite="strict",
+        path="/",
+    )
+
+
+def _clear_session_cookie(response: Response) -> None:
+    response.delete_cookie(
+        SESSION_COOKIE_NAME,
+        secure=COOKIE_SECURE,
+        httponly=True,
+        samesite="strict",
+        path="/",
+    )
+
+
+async def require_csrf(request: Request) -> None:
+    """Validate the double-submit token before a state-changing request body is used."""
+    cookie_token = request.cookies.get(CSRF_COOKIE_NAME, "")
+    header_token = request.headers.get(CSRF_HEADER_NAME, "")
+    if (
+        not cookie_token
+        or not header_token
+        or not secrets.compare_digest(cookie_token, header_token)
+    ):
+        raise HTTPException(status_code=403, detail="CSRF validation failed")
+
+
+def _request_is_loopback(request: Request) -> bool:
+    if request.client is None:
         return False
-    return True
+    try:
+        return ipaddress.ip_address(request.client.host).is_loopback
+    except ValueError:
+        return request.client.host.casefold() == "localhost"
 
 
-def _extract_bearer_token(authorization: str | None) -> str:
-    """Extract a non-empty bearer token from an Authorization header."""
-    if not authorization:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-
-    scheme, separator, token = authorization.partition(" ")
-    if scheme.lower() != "bearer" or not separator or not token.strip():
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    return token.strip()
+def _validate_setup_authorization(request: Request, provided_token: str | None) -> None:
+    if _request_is_loopback(request):
+        return
+    if (
+        SETUP_TOKEN
+        and provided_token
+        and secrets.compare_digest(SETUP_TOKEN, provided_token)
+    ):
+        return
+    raise HTTPException(
+        status_code=403,
+        detail="Initial setup requires a local request or GBABELDOCUI_SETUP_TOKEN",
+    )
 
 
 async def _save_uploaded_file(file: UploadFile, file_path: Path) -> int:
@@ -864,6 +1437,9 @@ async def _save_uploaded_file(file: UploadFile, file_path: Path) -> int:
                         ),
                     )
                 destination.write(chunk)
+    except asyncio.CancelledError:
+        file_path.unlink(missing_ok=True)
+        raise
     except Exception:
         file_path.unlink(missing_ok=True)
         raise
@@ -876,10 +1452,8 @@ def _client_address(request: Request) -> str:
 
 
 def _enforce_auth_attempt_limit(request: Request, operation: str, username: str) -> str:
-    # Include the account name so a reverse proxy does not make all users share
-    # one bucket. The account name is bounded because it is untrusted input.
-    identity = str(username).strip().casefold()[:128]
-    key = f"{operation}:{_client_address(request)}:{identity}"
+    del username
+    key = f"{operation}:{_client_address(request)}"
     retry_after = authentication_limiter.retry_after(key)
     if retry_after is not None:
         raise HTTPException(
@@ -1080,13 +1654,15 @@ def _cleanup_orphaned_uploaded_files() -> int:
 
 
 async def _periodic_orphan_upload_cleanup() -> None:
-    """Run conservative orphan cleanup without delaying application startup."""
+    """Run bounded maintenance without delaying application startup."""
     while True:
         await asyncio.sleep(ORPHAN_UPLOAD_CLEANUP_INTERVAL_SECONDS)
         try:
             await asyncio.to_thread(_cleanup_orphaned_uploaded_files)
+            if await asyncio.to_thread(_retention_cleanup_is_ready):
+                await _cleanup_expired_terminal_tasks_once()
         except Exception:
-            logger.exception("Orphan upload cleanup failed")
+            logger.exception("Periodic data cleanup failed")
 
 
 def _serialize_task(task: dict) -> dict:
@@ -1160,18 +1736,21 @@ def _resolve_download_path(task: dict, user_dir: Path, file_type: str) -> Path:
     return candidate
 
 
-def _cleanup_translation_artifacts(task: dict, user_dir: Path) -> None:
-    """Remove only artifacts owned by the task being failed or cancelled."""
+def _cleanup_translation_artifacts(task: dict, user_dir: Path) -> bool:
+    """Remove task-owned artifacts and report whether cleanup fully succeeded."""
+    cleanup_succeeded = True
     task_output_dir = (user_dir / "outputs" / task["task_id"]).resolve()
     outputs_root = (user_dir / "outputs").resolve()
     try:
         task_output_dir.relative_to(outputs_root)
     except ValueError:
+        cleanup_succeeded = False
         logger.error(
             "Refusing to remove output path outside user directory: %s", task_output_dir
         )
     else:
         if task_output_dir.is_symlink():
+            cleanup_succeeded = False
             logger.error(
                 "Refusing to remove symlinked task output: %s", task_output_dir
             )
@@ -1179,13 +1758,14 @@ def _cleanup_translation_artifacts(task: dict, user_dir: Path) -> None:
             try:
                 shutil.rmtree(task_output_dir)
             except OSError as exc:
+                cleanup_succeeded = False
                 logger.error(
                     "Failed to remove task output %s: %s", task_output_dir, exc
                 )
 
     input_path_value = task.get("input_path")
     if not input_path_value:
-        return
+        return cleanup_succeeded
     try:
         with _uploaded_file_lock(user_dir, task["file_id"]):
             active_file_references = task_store.count_active_tasks_for_file(
@@ -1197,19 +1777,21 @@ def _cleanup_translation_artifacts(task: dict, user_dir: Path) -> None:
                     task["task_id"],
                     active_file_references,
                 )
-                return
+                return cleanup_succeeded
 
             uploads_root = (user_dir / "uploads").resolve()
             input_path = Path(input_path_value)
             if input_path.is_symlink():
+                cleanup_succeeded = False
                 logger.error(
                     "Refusing to remove symlinked uploaded file: %s", input_path
                 )
-                return
+                return cleanup_succeeded
             input_path = input_path.resolve()
             try:
                 input_path.relative_to(uploads_root)
             except ValueError:
+                cleanup_succeeded = False
                 logger.error(
                     "Refusing to remove input path outside user directory: %s",
                     input_path,
@@ -1218,18 +1800,21 @@ def _cleanup_translation_artifacts(task: dict, user_dir: Path) -> None:
                 try:
                     input_path.unlink(missing_ok=True)
                 except OSError as exc:
+                    cleanup_succeeded = False
                     logger.error(
                         "Failed to remove uploaded file %s: %s", input_path, exc
                     )
     except Exception as exc:
+        cleanup_succeeded = False
         logger.error("Failed to clean uploaded file %s: %s", input_path_value, exc)
+    return cleanup_succeeded
 
 
-# Dependency to get current user from token
-async def get_current_user(authorization: str | None = Header(None)) -> dict:
-    """Validate authentication token and return current user"""
-    token = _extract_bearer_token(authorization)
-    user_data = user_manager.validate_token(token)
+# Dependency to get current user from the HttpOnly session cookie.
+async def get_current_user(request: Request) -> dict:
+    """Validate the session cookie and return the current user."""
+    token = _session_token(request)
+    user_data = await asyncio.to_thread(user_manager.validate_token, token)
 
     if not user_data:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
@@ -1247,20 +1832,46 @@ async def get_admin_user(current_user: dict = Depends(get_current_user)) -> dict
 def _build_engine_settings(
     service: str, user_settings: dict, *, allow_privileged_services: bool = False
 ):
-    """Build official pdf2zh-next engine settings from WebUI settings."""
-    from pdf2zh_next.config.translate_engine_model import AzureOpenAISettings
-    from pdf2zh_next.config.translate_engine_model import BingSettings
-    from pdf2zh_next.config.translate_engine_model import ClaudeCodeSettings
-    from pdf2zh_next.config.translate_engine_model import DeepLSettings
-    from pdf2zh_next.config.translate_engine_model import DeepSeekSettings
-    from pdf2zh_next.config.translate_engine_model import GeminiSettings
-    from pdf2zh_next.config.translate_engine_model import GoogleSettings
-    from pdf2zh_next.config.translate_engine_model import OllamaSettings
-    from pdf2zh_next.config.translate_engine_model import OpenAISettings
-    from pdf2zh_next.config.translate_engine_model import SiliconFlowFreeSettings
-    from pdf2zh_next.config.translate_engine_model import SiliconFlowSettings
-    from pdf2zh_next.config.translate_engine_model import TencentSettings
-    from pdf2zh_next.config.translate_engine_model import ZhipuSettings
+    """Build bundled pdf2zh-next-compatible engine settings from WebUI settings."""
+    from gbabeldocui._vendor.pdf2zh_next.config.translate_engine_model import (
+        AzureOpenAISettings,
+    )
+    from gbabeldocui._vendor.pdf2zh_next.config.translate_engine_model import (
+        BingSettings,
+    )
+    from gbabeldocui._vendor.pdf2zh_next.config.translate_engine_model import (
+        ClaudeCodeSettings,
+    )
+    from gbabeldocui._vendor.pdf2zh_next.config.translate_engine_model import (
+        DeepLSettings,
+    )
+    from gbabeldocui._vendor.pdf2zh_next.config.translate_engine_model import (
+        DeepSeekSettings,
+    )
+    from gbabeldocui._vendor.pdf2zh_next.config.translate_engine_model import (
+        GeminiSettings,
+    )
+    from gbabeldocui._vendor.pdf2zh_next.config.translate_engine_model import (
+        GoogleSettings,
+    )
+    from gbabeldocui._vendor.pdf2zh_next.config.translate_engine_model import (
+        OllamaSettings,
+    )
+    from gbabeldocui._vendor.pdf2zh_next.config.translate_engine_model import (
+        OpenAISettings,
+    )
+    from gbabeldocui._vendor.pdf2zh_next.config.translate_engine_model import (
+        SiliconFlowFreeSettings,
+    )
+    from gbabeldocui._vendor.pdf2zh_next.config.translate_engine_model import (
+        SiliconFlowSettings,
+    )
+    from gbabeldocui._vendor.pdf2zh_next.config.translate_engine_model import (
+        TencentSettings,
+    )
+    from gbabeldocui._vendor.pdf2zh_next.config.translate_engine_model import (
+        ZhipuSettings,
+    )
 
     normalized_service = service or "SiliconFlowFree"
     if normalized_service not in SUPPORTED_SERVICES:
@@ -1517,16 +2128,21 @@ def build_settings_model_from_user_config(
         "max_pages_per_part",
         0,
         minimum=0,
-        maximum=100000,
+        maximum=MAX_PDF_PAGES,
     )
+    if 0 < max_pages < 50:
+        raise ValueError("max_pages_per_part must be 0 or at least 50")
     if max_pages > 0:
         settings.pdf.max_pages_per_part = max_pages
 
-    # Formula patterns (note: frontend uses 'formula', backend uses 'formular')
-    formula_font = user_settings.get("formula_font_pattern", "")
+    formula_font = _validate_safe_formula_pattern(
+        user_settings.get("formula_font_pattern", ""), "formula_font_pattern"
+    )
     if formula_font:
         settings.pdf.formular_font_pattern = formula_font
-    formula_char = user_settings.get("formula_char_pattern", "")
+    formula_char = _validate_safe_formula_pattern(
+        user_settings.get("formula_char_pattern", ""), "formula_char_pattern"
+    )
     if formula_char:
         settings.pdf.formular_char_pattern = formula_char
 
@@ -1569,19 +2185,44 @@ def build_settings_model_from_user_config(
 @app.get("/api/auth/status")
 async def check_auth_status():
     """Check if initial setup is required"""
-    return {"setup_required": not user_manager.has_users(), "version": __version__}
+    return {
+        "setup_required": not await asyncio.to_thread(user_manager.has_users),
+        "setup_token_required": bool(SETUP_TOKEN),
+        "version": gbabeldocui_version,
+    }
+
+
+@app.get("/api/auth/me")
+async def get_authenticated_user(current_user: dict = Depends(get_current_user)):
+    return {
+        "success": True,
+        "username": current_user["username"],
+        "is_admin": current_user["is_admin"],
+    }
 
 
 @app.post("/api/auth/setup")
-async def initial_setup(request: SetupRequest):
+async def initial_setup(
+    http_request: Request,
+    response: Response,
+    request: SetupRequest,
+    _csrf: None = Depends(require_csrf),
+):
     """Create the first admin user"""
+    _validate_setup_authorization(http_request, request.setup_token)
     try:
-        user_manager.create_initial_admin(request.username, request.password)
-        token = user_manager.authenticate(request.username, request.password)
+        await asyncio.to_thread(
+            user_manager.create_initial_admin, request.username, request.password
+        )
+        token = await asyncio.to_thread(
+            user_manager.authenticate, request.username, request.password
+        )
+        if token is None:
+            raise HTTPException(status_code=500, detail="Failed to create session")
+        _set_session_cookie(response, token)
 
         return {
             "success": True,
-            "token": token,
             "username": request.username,
             "is_admin": True,
         }
@@ -1590,22 +2231,31 @@ async def initial_setup(request: SetupRequest):
 
 
 @app.post("/api/auth/login")
-async def login(http_request: Request, request: LoginRequest):
-    """Authenticate user and return session token"""
+async def login(
+    http_request: Request,
+    response: Response,
+    request: LoginRequest,
+    _csrf: None = Depends(require_csrf),
+):
+    """Authenticate a user and set an HttpOnly session cookie."""
     attempt_key = _enforce_auth_attempt_limit(http_request, "login", request.username)
-    token = user_manager.authenticate(request.username, request.password)
+    token = await asyncio.to_thread(
+        user_manager.authenticate, request.username, request.password
+    )
 
     if not token:
         authentication_limiter.record_failure(attempt_key)
         raise HTTPException(status_code=401, detail="Invalid username or password")
 
-    # Get user info
-    user_data = user_manager.validate_token(token)
+    user_data = await asyncio.to_thread(user_manager.validate_token, token)
+    if user_data is None:
+        authentication_limiter.record_failure(attempt_key)
+        raise HTTPException(status_code=401, detail="Authentication state changed")
     authentication_limiter.record_success(attempt_key)
+    _set_session_cookie(response, token)
 
     return {
         "success": True,
-        "token": token,
         "username": user_data["username"],
         "is_admin": user_data["is_admin"],
     }
@@ -1613,26 +2263,32 @@ async def login(http_request: Request, request: LoginRequest):
 
 @app.post("/api/auth/logout")
 async def logout(
+    http_request: Request,
+    response: Response,
     _current_user: dict = Depends(get_current_user),
-    authorization: str | None = Header(None),
+    _csrf: None = Depends(require_csrf),
 ):
     """Logout current user"""
-    token = _extract_bearer_token(authorization)
-    user_manager.logout(token)
+    token = _session_token(http_request)
+    await asyncio.to_thread(user_manager.logout, token)
+    _clear_session_cookie(response)
 
     return {"success": True, "message": "Logged out successfully"}
 
 
 @app.post("/api/auth/register")
 async def register_user(
-    request: RegisterRequest, _admin_user: dict = Depends(get_admin_user)
+    request: RegisterRequest,
+    _admin_user: dict = Depends(get_admin_user),
+    _csrf: None = Depends(require_csrf),
 ):
     """Register a new user (admin only)"""
     try:
-        user_manager.create_user(
+        await asyncio.to_thread(
+            user_manager.create_user,
             request.username,
             request.password,
-            is_admin=False,
+            False,
             max_users=MAX_USERS,
         )
         return {
@@ -1647,14 +2303,18 @@ async def register_user(
 async def list_users(admin_user: dict = Depends(get_admin_user)):
     """List all users (admin only)"""
     try:
-        users = user_manager.list_users(admin_user["username"])
+        users = await asyncio.to_thread(user_manager.list_users, admin_user["username"])
         return {"success": True, "users": users}
     except AuthenticationError as e:
         raise HTTPException(status_code=403, detail=str(e)) from e
 
 
 @app.delete("/api/auth/users/{username}")
-async def delete_user(username: str, admin_user: dict = Depends(get_admin_user)):
+async def delete_user(
+    username: str,
+    admin_user: dict = Depends(get_admin_user),
+    _csrf: None = Depends(require_csrf),
+):
     """Delete a user (admin only)"""
     deletion_key = username.casefold()
     with deleting_usernames_lock:
@@ -1684,11 +2344,6 @@ async def delete_user(username: str, admin_user: dict = Depends(get_admin_user))
             for active_user_task in task_store.list_active_tasks(deletion_key):
                 task_store.mark_cancelled(active_user_task["task_id"])
                 _cleanup_translation_artifacts(active_user_task, user_dir)
-                cancelled_task = task_store.get_task(
-                    active_user_task["task_id"], username=deletion_key
-                )
-                if cancelled_task:
-                    task_store.synchronize_history(cancelled_task)
             await asyncio.to_thread(
                 user_manager.delete_user, username, admin_user["username"]
             )
@@ -1697,6 +2352,8 @@ async def delete_user(username: str, admin_user: dict = Depends(get_admin_user))
         raise HTTPException(status_code=403, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except UserDataCleanupError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
     finally:
         with deleting_usernames_lock:
             deleting_usernames.discard(deletion_key)
@@ -1705,7 +2362,7 @@ async def delete_user(username: str, admin_user: dict = Depends(get_admin_user))
 @app.get("/api/auth/registration-status")
 async def get_registration_status():
     """Check if user registration is enabled (public endpoint)"""
-    enabled = user_manager.get_registration_enabled()
+    enabled = await asyncio.to_thread(user_manager.get_registration_enabled)
     return {"success": True, "enabled": enabled}
 
 
@@ -1713,11 +2370,14 @@ async def get_registration_status():
 async def toggle_registration(
     request: RegistrationToggleRequest,
     admin_user: dict = Depends(get_admin_user),
+    _csrf: None = Depends(require_csrf),
 ):
     """Enable or disable user registration (admin only)"""
     try:
         enabled = request.enabled
-        user_manager.set_registration_enabled(enabled, admin_user["username"])
+        await asyncio.to_thread(
+            user_manager.set_registration_enabled, enabled, admin_user["username"]
+        )
         return {
             "success": True,
             "enabled": enabled,
@@ -1728,35 +2388,47 @@ async def toggle_registration(
 
 
 @app.post("/api/auth/register/public")
-async def register_public(http_request: Request, request: RegisterRequest):
+async def register_public(
+    http_request: Request,
+    response: Response,
+    request: RegisterRequest,
+    _csrf: None = Depends(require_csrf),
+):
     """Public user registration endpoint (only works if registration is enabled)"""
     attempt_key = _enforce_auth_attempt_limit(
         http_request, "register", request.username
     )
     # Check if registration is enabled
-    if not user_manager.get_registration_enabled():
+    if not await asyncio.to_thread(user_manager.get_registration_enabled):
         raise HTTPException(
             status_code=403,
             detail="User registration is currently disabled. Please contact an administrator.",
         )
 
     try:
-        user_manager.create_user(
+        await asyncio.to_thread(
+            user_manager.create_user,
             request.username,
             request.password,
-            is_admin=False,
+            False,
             max_users=MAX_USERS,
         )
 
         # Automatically log in the new user
-        token = user_manager.authenticate(request.username, request.password)
-        user_data = user_manager.validate_token(token)
+        token = await asyncio.to_thread(
+            user_manager.authenticate, request.username, request.password
+        )
+        if token is None:
+            raise HTTPException(status_code=500, detail="Failed to create session")
+        user_data = await asyncio.to_thread(user_manager.validate_token, token)
+        if user_data is None:
+            raise HTTPException(status_code=500, detail="Failed to validate session")
         authentication_limiter.record_success(attempt_key)
+        _set_session_cookie(response, token)
 
         return {
             "success": True,
             "message": f"Account created successfully! Welcome, {request.username}!",
-            "token": token,
             "username": user_data["username"],
             "is_admin": user_data["is_admin"],
         }
@@ -1774,15 +2446,22 @@ async def get_settings(current_user: dict = Depends(get_current_user)):
         settings_file = user_dir / "settings.json"
 
         try:
-            settings = _read_settings_file(settings_file)
+            settings = await asyncio.to_thread(_read_settings_file, settings_file)
         except ValueError as exc:
             raise HTTPException(status_code=500, detail=str(exc)) from exc
-    return {"success": True, "settings": settings}
+    browser_settings, configured_credentials = _settings_for_browser(settings)
+    return {
+        "success": True,
+        "settings": browser_settings,
+        "configured_credentials": configured_credentials,
+    }
 
 
 @app.post("/api/settings")
 async def update_settings(
-    settings: dict, current_user: dict = Depends(get_current_user)
+    settings: dict,
+    current_user: dict = Depends(get_current_user),
+    _csrf: None = Depends(require_csrf),
 ):
     """Update current user's settings"""
     async with _user_lifecycle_guard(current_user["username"]):
@@ -1791,15 +2470,12 @@ async def update_settings(
         settings_file = user_dir / "settings.json"
 
         try:
-            lock_file = settings_file.with_name(f".{settings_file.name}.lock")
-            with FileLock(str(lock_file), timeout=30):
-                existing_settings = _read_settings_file_unlocked(settings_file)
-                merged_settings = _merge_user_settings(
-                    existing_settings,
-                    settings,
-                    is_admin=bool(current_user.get("is_admin")),
-                )
-                _write_json_file(settings_file, merged_settings)
+            await asyncio.to_thread(
+                _merge_and_write_settings_file,
+                settings_file,
+                settings,
+                is_admin=bool(current_user.get("is_admin")),
+            )
         except PermissionError as exc:
             raise HTTPException(status_code=403, detail=str(exc)) from exc
         except ValueError as exc:
@@ -1810,29 +2486,37 @@ async def update_settings(
 
 @app.post("/api/settings/password")
 async def change_password(
-    request: ChangePasswordRequest, current_user: dict = Depends(get_current_user)
+    response: Response,
+    request: ChangePasswordRequest,
+    current_user: dict = Depends(get_current_user),
+    _csrf: None = Depends(require_csrf),
 ):
     """Change current user's password"""
     async with _user_lifecycle_guard(current_user["username"]):
         try:
-            user_manager.change_password(
-                current_user["username"], request.old_password, request.new_password
+            await asyncio.to_thread(
+                user_manager.change_password,
+                current_user["username"],
+                request.old_password,
+                request.new_password,
             )
+            _clear_session_cookie(response)
             return {"success": True, "message": "Password changed successfully"}
         except (AuthenticationError, ValueError) as e:
             raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @app.post("/api/settings/reset")
-async def reset_settings(current_user: dict = Depends(get_current_user)):
+async def reset_settings(
+    current_user: dict = Depends(get_current_user),
+    _csrf: None = Depends(require_csrf),
+):
     """Reset current user's settings to default"""
     async with _user_lifecycle_guard(current_user["username"]):
         user_dir = user_manager.get_user_dir(current_user["username"])
         settings_file = user_dir / "settings.json"
 
-        lock_file = settings_file.with_name(f".{settings_file.name}.lock")
-        with FileLock(str(lock_file), timeout=30):
-            _write_json_file(settings_file, {})
+        await asyncio.to_thread(_replace_settings_file, settings_file, {})
 
     return {"success": True, "message": "Settings reset to default"}
 
@@ -1845,7 +2529,7 @@ async def export_settings(current_user: dict = Depends(get_current_user)):
         settings_file = user_dir / "settings.json"
 
         try:
-            settings = _read_settings_file(settings_file)
+            settings = await asyncio.to_thread(_read_settings_file, settings_file)
         except ValueError as exc:
             raise HTTPException(status_code=500, detail=str(exc)) from exc
 
@@ -1878,7 +2562,9 @@ async def export_settings(current_user: dict = Depends(get_current_user)):
 
 @app.post("/api/settings/import")
 async def import_settings(
-    file: UploadFile = File(...), current_user: dict = Depends(get_current_user)
+    file: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user),
+    _csrf: None = Depends(require_csrf),
 ):
     """Import settings from JSON file"""
     import_filename = file.filename or ""
@@ -1896,7 +2582,7 @@ async def import_settings(
                     f"{MAX_SETTINGS_IMPORT_BYTES} byte limit"
                 ),
             )
-        import_data = json.loads(content.decode("utf-8"))
+        import_data = _load_json_value(content.decode("utf-8"))
 
         # Validate structure
         if not isinstance(import_data, dict) or "settings" not in import_data:
@@ -1924,17 +2610,14 @@ async def import_settings(
             user_dir.mkdir(parents=True, exist_ok=True)
             settings_file = user_dir / "settings.json"
 
-            lock_file = settings_file.with_name(f".{settings_file.name}.lock")
-            with FileLock(str(lock_file), timeout=30):
-                existing_settings = _read_settings_file_unlocked(settings_file)
-                merged_settings = _merge_user_settings(
-                    existing_settings,
-                    imported_settings,
-                    is_admin=bool(current_user.get("is_admin")),
-                )
-                _write_json_file(settings_file, merged_settings)
+            await asyncio.to_thread(
+                _merge_and_write_settings_file,
+                settings_file,
+                imported_settings,
+                is_admin=bool(current_user.get("is_admin")),
+            )
 
-        setting_count = len(merged_settings)
+        setting_count = len(imported_settings)
 
         return {
             "success": True,
@@ -1960,7 +2643,7 @@ async def import_settings(
 
 
 def _resolve_translation_pages(
-    requested_settings: dict, saved_settings: dict
+    requested_settings: dict, saved_settings: dict, page_count: int
 ) -> str | None:
     """Resolve explicit per-task pages before falling back to saved preferences."""
     if "pages" in requested_settings:
@@ -1975,27 +2658,52 @@ def _resolve_translation_pages(
         if saved_page_range == "first":
             return "1"
         if saved_page_range == "first5":
-            return "1-5"
+            last_page = min(5, page_count)
+            return "1" if last_page == 1 else f"1-{last_page}"
         if saved_page_range == "custom":
             page_range = str(saved_settings.get("custom_pages") or "").strip()
-            return page_range or None
+            return _parse_page_range(page_range, page_count) if page_range else None
         return None
 
-    if len(page_range) > 200 or not re.fullmatch(r"[0-9,\-\s]+", page_range):
-        raise ValueError("pages contains an invalid page range")
-    return page_range
+    return _parse_page_range(page_range, page_count)
+
+
+def _settings_without_credentials(user_settings: dict) -> dict:
+    """Create a persistent task snapshot without provider credentials."""
+    return {
+        setting_name: setting_value
+        for setting_name, setting_value in user_settings.items()
+        if not setting_name.casefold().endswith(SENSITIVE_SETTING_SUFFIXES)
+    }
+
+
+def _settings_for_browser(user_settings: dict) -> tuple[dict, list[str]]:
+    """Return editable settings without sending saved provider credentials."""
+    browser_settings = _settings_without_credentials(user_settings)
+    configured_credentials = sorted(
+        setting_name
+        for setting_name, setting_value in user_settings.items()
+        if setting_name.casefold().endswith(SENSITIVE_SETTING_SUFFIXES)
+        and isinstance(setting_value, str)
+        and bool(setting_value)
+    )
+    return browser_settings, configured_credentials
 
 
 def _load_task_settings_snapshot(
     user_dir: Path,
     requested_settings: dict,
+    input_path: Path,
     output_dir: Path,
     *,
     is_admin: bool,
 ) -> dict:
     settings_file = user_dir / "settings.json"
     saved_settings = _read_settings_file(settings_file)
-    page_range = _resolve_translation_pages(requested_settings, saved_settings)
+    page_count = _pdf_page_count(input_path)
+    page_range = _resolve_translation_pages(
+        requested_settings, saved_settings, page_count
+    )
     settings_snapshot = {
         "user_settings": saved_settings,
         "pages": page_range,
@@ -2017,7 +2725,9 @@ def _load_task_settings_snapshot(
 # File upload and translation endpoints
 @app.post("/api/upload")
 async def upload_file(
-    file: UploadFile = File(...), current_user: dict = Depends(get_current_user)
+    file: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user),
+    _csrf: None = Depends(require_csrf),
 ):
     """Upload a PDF file for translation"""
     safe_filename = _normalize_uploaded_filename(file.filename)
@@ -2039,11 +2749,11 @@ async def upload_file(
         file_path = upload_dir / f"{file_id}_{safe_filename}"
 
         uploaded_bytes = await _save_uploaded_file(file, file_path)
-        if not await asyncio.to_thread(_is_readable_pdf, file_path):
+        try:
+            page_count = await asyncio.to_thread(_pdf_page_count, file_path)
+        except ValueError as exc:
             file_path.unlink(missing_ok=True)
-            raise HTTPException(
-                status_code=400, detail="The uploaded file is not a PDF"
-            )
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
         current_storage_bytes = await asyncio.to_thread(_user_storage_bytes, user_dir)
         if current_storage_bytes > MAX_USER_STORAGE_BYTES:
             file_path.unlink(missing_ok=True)
@@ -2054,12 +2764,15 @@ async def upload_file(
         "file_id": file_id,
         "filename": safe_filename,
         "size": uploaded_bytes,
+        "page_count": page_count,
     }
 
 
 @app.delete("/api/upload/{file_id}")
 async def delete_uploaded_file(
-    file_id: str, current_user: dict = Depends(get_current_user)
+    file_id: str,
+    current_user: dict = Depends(get_current_user),
+    _csrf: None = Depends(require_csrf),
 ):
     """Delete an uploaded file that has not been attached to a translation task."""
     try:
@@ -2096,6 +2809,7 @@ async def start_translation(
     file_id: str = Form(...),
     settings: str = Form(...),
     current_user: dict = Depends(get_current_user),
+    _csrf: None = Depends(require_csrf),
 ):
     """Start a translation task"""
     if len(settings.encode("utf-8")) > MAX_SETTINGS_JSON_BYTES:
@@ -2103,8 +2817,8 @@ async def start_translation(
             status_code=413, detail="Translation settings are too large"
         )
     try:
-        translation_settings = json.loads(settings)
-    except json.JSONDecodeError:
+        translation_settings = _load_json_value(settings)
+    except (json.JSONDecodeError, ValueError):
         raise HTTPException(status_code=400, detail="Invalid settings JSON") from None
     if not isinstance(translation_settings, dict):
         raise HTTPException(
@@ -2142,20 +2856,28 @@ async def start_translation(
             settings_snapshot = _load_task_settings_snapshot(
                 user_dir,
                 translation_settings,
+                file_path,
                 output_dir,
                 is_admin=bool(current_user.get("is_admin")),
             )
-            queued_task = task_store.create_task(
+            persistent_settings_snapshot = {
+                **settings_snapshot,
+                "user_settings": _settings_without_credentials(
+                    settings_snapshot["user_settings"]
+                ),
+            }
+            task_store.create_task(
                 task_id=task_id,
                 username=username,
                 file_id=normalized_file_id,
                 filename=file_path.name.removeprefix(f"{normalized_file_id}_"),
                 input_path=file_path,
                 output_dir=output_dir,
-                settings_snapshot=settings_snapshot,
+                settings_snapshot=persistent_settings_snapshot,
                 max_active_tasks=MAX_ACTIVE_TASKS_PER_USER,
                 max_active_tasks_global=MAX_ACTIVE_TASKS_GLOBAL,
             )
+            active_task_settings[task_id] = settings_snapshot
         except ActiveTaskLimitError as exc:
             shutil.rmtree(output_dir, ignore_errors=True)
             _remove_unattached_uploaded_file_locked(
@@ -2190,7 +2912,6 @@ async def start_translation(
             )
             raise
 
-        task_store.synchronize_history(queued_task)
         task_handle = asyncio.create_task(
             run_translation_with_timeout(task_id, username),
             name=f"translation-{task_id}",
@@ -2213,6 +2934,8 @@ async def run_translation(task_id: str, username: str) -> None:
             if task is None:
                 return
 
+            if not task.get("input_path") or not task.get("output_dir"):
+                raise ValueError("Saved translation paths are invalid")
             file_path = Path(task["input_path"])
             output_dir = Path(task["output_dir"])
             original_filename = task["original_filename"]
@@ -2220,23 +2943,17 @@ async def run_translation(task_id: str, username: str) -> None:
                 _cleanup_translation_artifacts(task, user_dir)
                 return
 
-        try:
-            task_snapshot = json.loads(task.get("settings_json") or "{}")
-        except (TypeError, json.JSONDecodeError) as exc:
-            raise ValueError("Saved translation settings are invalid") from exc
-        if task_snapshot and "user_settings" in task_snapshot:
-            user_settings = task_snapshot["user_settings"]
-            pages = task_snapshot.get("pages")
-            allow_privileged_services = bool(
-                task_snapshot.get("allow_privileged_services")
-            )
-        else:
-            # Tasks created by an older database schema can still be inspected;
-            # they are not expected to resume after a restart.
-            async with _user_lifecycle_guard(username):
-                user_settings = _read_settings_file(user_dir / "settings.json")
-            pages = None
-            allow_privileged_services = False
+        task_snapshot = active_task_settings.get(task_id)
+        if task_snapshot is None:
+            try:
+                task_snapshot = _load_json_value(task.get("settings_json") or "{}")
+            except (TypeError, json.JSONDecodeError, ValueError) as exc:
+                raise ValueError("Saved translation settings are invalid") from exc
+        if not task_snapshot or "user_settings" not in task_snapshot:
+            raise ValueError("Saved translation settings are incomplete")
+        user_settings = task_snapshot["user_settings"]
+        pages = task_snapshot.get("pages")
+        allow_privileged_services = bool(task_snapshot.get("allow_privileged_services"))
         if not isinstance(user_settings, dict):
             raise ValueError("Saved translation settings are invalid")
 
@@ -2314,9 +3031,6 @@ async def run_translation(task_id: str, username: str) -> None:
             if not task_store.mark_completed(task_id, mono_path, dual_path):
                 _cleanup_translation_artifacts(task, user_dir)
                 return
-            completed_task = task_store.get_task(task_id, username=username)
-            if completed_task:
-                task_store.synchronize_history(completed_task)
         logger.info("Translation task %s completed successfully", task_id)
 
     except asyncio.CancelledError:
@@ -2332,9 +3046,6 @@ async def run_translation(task_id: str, username: str) -> None:
                     task_store.mark_cancelled(task_id)
                 if task is not None:
                     _cleanup_translation_artifacts(task, user_dir)
-                cancelled_task = task_store.get_task(task_id, username=username)
-                if cancelled_task:
-                    task_store.synchronize_history(cancelled_task)
         except HTTPException:
             # Account deletion owns cleanup after it marks the account as deleting.
             pass
@@ -2354,14 +3065,12 @@ async def run_translation(task_id: str, username: str) -> None:
                 task_store.mark_failed(task_id, error_message)
                 if task is not None:
                     _cleanup_translation_artifacts(task, user_dir)
-                failed_task = task_store.get_task(task_id, username=username)
-                if failed_task:
-                    task_store.synchronize_history(failed_task)
         except HTTPException:
             # Account deletion owns cleanup after it marks the account as deleting.
             pass
     finally:
         active_tasks.pop(task_id, None)
+        active_task_settings.pop(task_id, None)
 
 
 async def run_translation_with_timeout(task_id: str, username: str) -> None:
@@ -2414,7 +3123,9 @@ async def get_translation_history(
 
 @app.delete("/api/translate/history/{task_id}")
 async def delete_history_item(
-    task_id: str, current_user: dict = Depends(get_current_user)
+    task_id: str,
+    current_user: dict = Depends(get_current_user),
+    _csrf: None = Depends(require_csrf),
 ):
     """Delete a history item and its associated files"""
     username = current_user["username"]
@@ -2427,11 +3138,14 @@ async def delete_history_item(
     async with _user_lifecycle_guard(username):
         task = _get_owned_task(task_id, username)
         user_dir = user_manager.get_user_dir(username)
-        _cleanup_translation_artifacts(task, user_dir)
+        if not _cleanup_translation_artifacts(task, user_dir):
+            raise HTTPException(
+                status_code=500,
+                detail="Task files could not be removed; the history record was kept",
+            )
         deleted_task = task_store.delete_task(task_id, username)
         if deleted_task is None:
             raise HTTPException(status_code=404, detail="Task not found")
-        task_store.remove_from_history(username, task_id)
     return {"success": True, "message": "History item deleted"}
 
 

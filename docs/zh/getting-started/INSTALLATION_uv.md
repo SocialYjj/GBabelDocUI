@@ -1,61 +1,50 @@
-[**开始使用**](./getting-started.md) > **如何安装** > **uv** _(current)_
+[**开始使用**](./getting-started.md) > **安装** > **uv** _(当前)_
 
 ---
 
-> **范围说明：** 本页是官方 [`pdf2zh-next` uv 安装](https://github.com/PDFMathTranslate-next/PDFMathTranslate-next) 的参考文档，不是 GBabelDocUI Web UI 文档。GBabelDocUI Web UI 请参阅 [`USAGE_webui.md`](./USAGE_webui.md) 和 Docker 部署说明。不要把 `pdf2zh_next` 替换为 `gbabeldocui`，因为两者的命令行参数不兼容。
+# 使用 uv 安装 GBabelDocUI
 
-### 通过 uv 安装 PDFMathTranslate
+本页安装的是 GBabelDocUI。项目已经内置所需且经过校验的 `pdf2zh-next 2.9.0` 运行时子集，不要另行安装或使用上游 `pdf2zh_next` 命令替代 `gbabeldocui`。
 
-#### 什么是 uv？如何安装它？
+## 环境要求
 
-uv 是一款用 Rust 编写的极速 Python 包和项目管理工具。
-<br>
-要在您的计算机上安装 uv，请参考 [这篇文章](https://docs.astral.sh/uv/getting-started/installation/)。
+- Python 3.10–3.13
+- Git
+- [`uv`](https://docs.astral.sh/uv/getting-started/installation/)
 
----
+## 安装并运行
 
-#### 如何安装
+```bash
+git clone https://github.com/SocialYjj/GBabelDocUI.git
+cd GBabelDocUI
+uv sync --frozen
+```
 
-1. 已安装 Python（3.10 <= 版本 <= 3.12）；
+本机使用明文 HTTP 时：
 
-2. 使用以下命令来使用我们的包：
+=== "Linux 和 macOS"
 
     ```bash
-    pip install uv
-    uv tool install --python 3.12 pdf2zh-next
+    export GBABELDOCUI_COOKIE_SECURE=false
+    uv run gbabeldocui
     ```
 
-安装完成后，您可以通过 **命令行** 或 **WebUI** 开始翻译。
+=== "Windows PowerShell"
 
-!!! Warning
+    ```powershell
+    $env:GBABELDOCUI_COOKIE_SECURE = "false"
+    uv run gbabeldocui
+    ```
 
-    如果在运行时看到错误 `command not found: pdf2zh_next`，请按以下方式配置环境变量后重试：
+打开 `http://127.0.0.1:7860/login.html`。
 
-    === "macOS 和 Linux"
+公开部署时保持 `GBABELDOCUI_COOKIE_SECURE=true`，使用 HTTPS 反向代理，并确保每个数据目录只运行一个进程和一个副本。
 
-        将以下内容添加到 ~/.zshrc 文件中：
+## 开发环境
 
-        ```console
-        export PATH="$PATH:/Users/Username/.local/bin"
-        ```
-
-        然后重启终端
-
-    === "Windows"
-
-        在 PowerShell 中输入以下命令：
-
-        ```powershell
-        $env:Path = "C:\Users\Username\.local\bin;$env:Path"
-        ```
-
-        然后重启终端
-
-> [!NOTE]
-> 如果在使用 WebUI 时遇到任何问题，请参考 [如何使用 --> WebUI](./USAGE_webui.md)。
-
-> [!NOTE]
-> 如果在使用 命令行 时遇到任何问题，请参考 [如何使用 --> 命令行](./USAGE_commandline.md)。
-
-<div align="right"> 
-<h6><small>本页面的部分内容由 GPT 翻译，可能包含错误。</small></h6>
+```bash
+uv sync --dev --frozen
+uv run pytest -q
+uv run ruff check gbabeldocui tests
+uv run ruff format --check gbabeldocui tests
+```

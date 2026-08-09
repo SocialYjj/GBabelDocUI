@@ -1,49 +1,5 @@
-[**Getting Started**](./getting-started.md) > **Usage** > **Command Line** _(current)_
+# Upstream command-line reference
 
----
+GBabelDocUI provides the `gbabeldocui` command only to start its Web server. It does not bundle the upstream `pdf2zh_next` CLI.
 
-> **Scope note:** This page is a reference for the official [`pdf2zh-next` command-line interface](https://github.com/PDFMathTranslate-next/PDFMathTranslate-next). It does **not** document the GBabelDocUI Web UI. Use [`USAGE_webui.md`](./USAGE_webui.md) and the Docker instructions for the GBabelDocUI Web UI. Do not replace `pdf2zh_next` with `gbabeldocui`; their command-line arguments are not compatible.
-
-### Use PDFMathTranslate via command line
-
-#### Basic Usage
-
-After Installation, please enter this command to translate your PDF.
-
-```bash
-pdf2zh_next document.pdf
-```
-
-> [!NOTE]
-> 
-> If your pathname contains spaces, please enclose it in quotation marks.
-> 
-> ```bash
-> pdf2zh_next "path with spaces/document.pdf"
-> ```
-
-After execute translation, files generated in **current working directory**.
-
-> [!TIP]
-> **Where is my "Current Working Directory" ?**
-> Before entering a command in the terminal, you might see a pathname displayed in your terminal:
-> 
-> ```powershell
-> PS C:\Users\XXX>
-> ```
-> 
-> This directory is the "*Current working directory*."
-> 
-> If there is no pathname, try running this command in the terminal:
-> 
-> ```bash
-> pwd
-> ```
-> 
-> After executing this command, a pathname will be output. This pathname is the "**Current working directory**". The translated files will appear here.
-
----
-
-#### Advance Usage
-
-For detailed explanations of additional command line parameters, please refer to [advanced usage](./../advanced/advanced.md).
+For standalone command-line PDF translation, install the official [PDFMathTranslate-next project](https://github.com/PDFMathTranslate-next/PDFMathTranslate-next) and use its version-matched documentation. The `gbabeldocui` and `pdf2zh_next` commands are not interchangeable.

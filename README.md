@@ -1,145 +1,114 @@
 # GBabelDocUI
 
-基于官方 [pdf2zh-next](https://github.com/PDFMathTranslate-next/PDFMathTranslate-next) 的多用户 Web UI 适配层。
+GBabelDocUI 是面向自托管场景的多用户 PDF 翻译 Web UI，使用 FastAPI 提供认证、配置、任务、文件和历史记录接口，翻译核心为 BabelDOC。
 
-本项目是基于 [eaiu/GBabelDocUI](https://github.com/eaiu/GBabelDocUI) 修改而来。**原作者**：eaiu。
+本项目基于 [eaiu/GBabelDocUI](https://github.com/eaiu/GBabelDocUI) 修改，并内置经官方 PyPI wheel 校验的 `pdf2zh-next 2.9.0` 运行时子集。内置范围仅包括配置模型、高阶翻译接口、翻译器和异步桥接；不包含上游 CLI、Gradio GUI 或 HTTP API。来源、校验值和修改边界见 [`NOTICE`](NOTICE) 与[内置运行时来源说明](https://github.com/SocialYjj/GBabelDocUI/blob/main/gbabeldocui/_vendor/pdf2zh_next/UPSTREAM.md)。
 
-当前仓库已经**不再内置本地 `pdf2zh_next` fork**，运行时直接依赖官方包：
+## 当前能力
 
-- **官方运行时**: `pdf2zh-next`
-- **核心引擎**: [BabelDOC](https://github.com/funstory-ai/BabelDOC)
-- **本仓库职责**: 多用户认证、配置持久化、翻译历史、文件管理、Web UI
-
-## 新增功能
-
-### 全新 UI
-
-- **现代化界面**: 简洁的设计风格
-- **独立 Web 入口**: 直接运行 `gbabeldocui`
-  ![mainPage](https://raw.githubusercontent.com/SocialYjj/GBabelDocUI/main/static/mainPage.png)
-
-### 用户系统
-
-- **多用户支持**: 支持管理员和普通用户
-- **首次设置向导**: 自动引导创建管理员账户
-- **用户自助注册**: 管理员可控制是否允许新用户注册
-- **JWT 认证**: 安全的 Token 认证机制
-- **会话管理**: 登录状态持久化，支持过期自动清理
-
-### 持久化用户配置
-
-- **用户数据持久化**: 刷新网页后配置不会丢失
-- **独立配置空间**: 每个用户拥有独立设置
-- **配置导入/导出**: 一键导出为 JSON，支持跨用户复用
-
-### 文件管理
-
-- **翻译历史**: 查看所有翻译记录
-- **文件下载**: 支持下载 Mono / Dual 版本
-- **一键删除**: 删除历史记录及关联文件
+- 管理员和普通用户隔离，支持受控注册与用户管理。
+- `HttpOnly` Cookie 会话、`SameSite=Strict`、CSRF 校验、会话上限和登录限流。
+- PDF 内容、页数、页码范围、请求体、并发任务和用户存储配额校验。
+- 用户设置、任务状态和历史记录使用 SQLite/JSON 持久化；浏览器不会收到已保存的 API 密钥。
+- 上传取消、任务失败、超时、删除和服务重启均执行明确的状态与文件收尾。
+- 完成、失败和取消任务默认保留 90 天；升级后默认等待 7 天再开始自动清理。
+- 单实例数据目录锁，禁止多个进程或副本共享同一个 `data/` 目录。
+- Docker 镜像使用固定基础镜像摘要、非 root 用户和多阶段构建；Compose 默认仅绑定本机地址并收紧容器权限。
 
 ## 本地启动
+
+需要 Python 3.10–3.13 和 [uv](https://docs.astral.sh/uv/)。
 
 ```bash
 git clone https://github.com/SocialYjj/GBabelDocUI.git
 cd GBabelDocUI
-uv venv .venv
-source .venv/bin/activate
-uv sync --dev
-gbabeldocui
+uv sync --dev --frozen
 ```
 
-默认监听：
-
-- `gbabeldocui` 直接运行时监听 `0.0.0.0:7860`，请通过反向代理提供 HTTPS。
-- Docker Compose 默认只将宿主机 `127.0.0.1:7860` 转发到容器；需要直接对外暴露时显式设置 `GBABELDOCUI_BIND_ADDRESS=0.0.0.0`，并自行配置 HTTPS 和防火墙。
-- 当前翻译执行器按单进程设计，请保持一个 Uvicorn worker 和一个应用副本；不要让多个 worker 或副本共享同一个 `data/` 目录。
-
-可选环境变量：
+Linux/macOS 本地明文 HTTP：
 
 ```bash
-export PORT=7860
-export GBABELDOCUI_DATA_DIR=/absolute/path/to/data
-# 仅在前后端跨域部署时设置，多个来源使用逗号分隔
-export GBABELDOCUI_ALLOWED_ORIGINS=https://example.com
-# 默认 50 MiB
-export GBABELDOCUI_MAX_UPLOAD_BYTES=52428800
-# 单个用户默认最多保留 2 GiB 数据
-export GBABELDOCUI_MAX_USER_STORAGE_BYTES=2147483648
-# 单个用户默认最多同时运行 2 个翻译任务
-export GBABELDOCUI_MAX_ACTIVE_TASKS_PER_USER=2
-# 全部用户默认最多同时运行 8 个翻译任务
-export GBABELDOCUI_MAX_ACTIVE_TASKS_GLOBAL=8
-# 单个任务默认最长运行 2 小时
-export GBABELDOCUI_TRANSLATION_TIMEOUT_SECONDS=7200
-# 默认最多创建 1000 个账户
-export GBABELDOCUI_MAX_USERS=1000
-# 未关联翻译任务的上传文件默认保留 7 天后由后台回收
-export GBABELDOCUI_ORPHAN_UPLOAD_TTL_SECONDS=604800
-# 只有在确实需要访问内网翻译服务时才显式开启
-export GBABELDOCUI_ALLOW_PRIVATE_ENDPOINTS=false
+export GBABELDOCUI_COOKIE_SECURE=false
+uv run gbabeldocui
 ```
 
-## Docker 部署
+Windows PowerShell 本地明文 HTTP：
 
-仓库根目录的 [`docker-compose.yml`](https://github.com/SocialYjj/GBabelDocUI/blob/main/docker-compose.yml) 使用标准 Compose 配置，不需要额外创建外部 Docker 网络。执行以下命令即可构建并启动：
+```powershell
+$env:GBABELDOCUI_COOKIE_SECURE = "false"
+uv run gbabeldocui
+```
+
+默认监听 `0.0.0.0:7860`。公开部署必须通过 HTTPS 反向代理，并保持 `GBABELDOCUI_COOKIE_SECURE=true`。不要使用多个 Uvicorn worker，也不要启动多个共享同一数据目录的应用副本。
+
+首次管理员初始化仅允许来自回环地址的请求。必须远程初始化时，启动前设置一次性高强度 `GBABELDOCUI_SETUP_TOKEN`，完成初始化后移除该变量并重启服务。
+
+## Docker Compose
+
+Linux 首次使用绑定目录前，应让镜像内 UID/GID `10001:10001` 可以写入：
 
 ```bash
+mkdir -p data
+sudo chown -R 10001:10001 data
 docker compose up -d --build
 ```
 
-默认访问地址为 `http://127.0.0.1:7860`。如需修改宿主机端口，可在启动前设置 `GBABELDOCUI_PORT`。
-
-### 使用 GitHub Container Registry 镜像
-
-`.github/workflows/docker-publish.yml` 会在推送 `main` 分支或 `v*` 版本标签时自动构建并发布镜像；在 GitHub Actions 页面手动运行时，只有 `main` 分支或 `v*` 版本标签上下文允许发布，其他分支只构建和扫描。Pull Request 只构建和扫描，不发布。发布后可直接使用：
+Compose 默认发布到 `http://127.0.0.1:7860`，并显式设置 `GBABELDOCUI_COOKIE_SECURE=false` 以支持本机 HTTP。通过 HTTPS 反向代理公开服务时至少设置：
 
 ```bash
-docker pull ghcr.io/socialyjj/gbabeldocui:latest
-docker run -d \
-  --name gbabeldocui \
-  --restart unless-stopped \
-  -p 127.0.0.1:7860:7860 \
-  -v "$(pwd)/data:/app/data" \
-  -v gbabeldocui-cache:/root/.cache/babeldoc \
-  ghcr.io/socialyjj/gbabeldocui:latest
+export GBABELDOCUI_COOKIE_SECURE=true
+export GBABELDOCUI_SETUP_TOKEN='replace-with-a-long-random-value'
+docker compose up -d
 ```
 
-工作流会在 `main` 推送或 `v*` 版本标签推送时自动发布，并为发布构建生成 `latest` 和提交短 SHA 标签；Pull Request 和其他分支的手动运行只检查和扫描，不发布镜像。首次发布后，如果 GHCR 包不是公开的，需要在 GitHub 的 Package settings 中将其设置为 Public，VPS 才能免认证拉取；`data/` 仍只通过本地持久化卷挂载，不会进入镜像。
+Compose 已启用非 root 用户、只读根文件系统、`no-new-privileges`、能力删除、PID/CPU/内存限制、临时文件系统和日志轮换。持久数据写入 `./data`，BabelDOC 模型及字体缓存写入命名卷 `/cache`。
 
-当前 GHCR 工作流只构建 `linux/amd64` 镜像；使用 ARM VPS 时请在目标环境本地构建 Compose 镜像。
+## 主要环境变量
 
-## 数据目录结构
+| 变量 | 默认值 | 说明 |
+| --- | ---: | --- |
+| `PORT` | `7860` | 服务端口 |
+| `GBABELDOCUI_DATA_DIR` | `./data` | 运行数据目录 |
+| `GBABELDOCUI_COOKIE_SECURE` | `true` | HTTPS 部署保持 `true`；仅本地 HTTP 设为 `false` |
+| `GBABELDOCUI_SETUP_TOKEN` | 空 | 远程首次初始化所需的一次性令牌 |
+| `GBABELDOCUI_ALLOWED_ORIGINS` | 空 | 独立可信前端来源，多个值用逗号分隔 |
+| `GBABELDOCUI_MAX_UPLOAD_BYTES` | `52428800` | 单个上传请求上限 |
+| `GBABELDOCUI_MAX_USER_STORAGE_BYTES` | `2147483648` | 单用户存储上限 |
+| `GBABELDOCUI_MAX_ACTIVE_TASKS_PER_USER` | `2` | 单用户活动任务上限 |
+| `GBABELDOCUI_MAX_ACTIVE_TASKS_GLOBAL` | `8` | 全局活动任务上限 |
+| `GBABELDOCUI_MAX_SESSIONS_PER_USER` | `10` | 单用户有效会话上限 |
+| `GBABELDOCUI_TRANSLATION_TIMEOUT_SECONDS` | `7200` | 单任务运行时限 |
+| `GBABELDOCUI_MAX_USERS` | `1000` | 账户总数上限 |
+| `GBABELDOCUI_AUTH_ATTEMPT_LIMIT` | `5` | 登录/注册失败窗口内次数上限 |
+| `GBABELDOCUI_AUTH_ATTEMPT_WINDOW_SECONDS` | `300` | 认证限流窗口秒数 |
+| `GBABELDOCUI_ORPHAN_UPLOAD_TTL_SECONDS` | `604800` | 未关联上传文件保留时间 |
+| `GBABELDOCUI_TASK_RETENTION_DAYS` | `90` | 终态任务及文件保留天数 |
+| `GBABELDOCUI_RETENTION_GRACE_DAYS` | `7` | 升级后首次自动清理宽限天数 |
+| `GBABELDOCUI_ALLOW_PRIVATE_ENDPOINTS` | `false` | 是否允许管理员配置私网翻译端点 |
+
+## 数据目录
 
 ```text
 data/
-├── users.db          # 用户认证数据库
+├── users.db
+├── .gbabeldocui-instance.lock
+├── .gbabeldocui-retention-v1
 └── users/
     └── {username}/
-        ├── settings.json  # 用户配置
-        ├── history.json   # 翻译历史
-        ├── uploads/       # 上传的文件
-        └── outputs/       # 翻译结果
+        ├── settings.json
+        ├── history.json      # 仅用于旧版本历史的一次性导入
+        ├── uploads/
+        └── outputs/
 ```
 
-`data/` 是运行时数据目录，包含数据库、上传文件、翻译结果、用户配置和可能的 API 密钥。该目录必须保留在本地或 VPS 持久化卷中，但被 `.gitignore` 和 `.dockerignore` 排除，不应提交到公开仓库。`yuan/` 仅作为本地来源对照目录，也不会进入本仓库。
+SQLite 是任务运行状态和历史记录的唯一事实源。旧 `history.json` 只读取并记账导入一次，不再由服务持续重写，也不会在迁移时删除。`data/` 可能包含账户数据库、API 密钥、上传文件和翻译结果，禁止提交、打包或公开备份。
 
-如果上传文件成功但用户没有创建翻译任务，服务会在文件超过 `GBABELDOCUI_ORPHAN_UPLOAD_TTL_SECONDS` 后回收该未关联文件；已经关联任务或历史记录的文件不会被此回收逻辑删除。当前工作区中的 `data/` 不会因为代码检查或构建被清理。
+## 镜像发布
 
-翻译任务状态现在也持久化在 `users.db` 中；服务重启后，未完成任务会标记为失败，不会伪装成仍在运行。现有 `history.json` 会保留并自动导入，后续写入采用加锁和原子替换。
+GitHub Actions 会在 Pull Request、`main` 推送和手动运行时执行测试、发行包审计、严格文档构建、镜像构建和 Trivy 门禁，但不会自动发布。只有形如 `v<项目版本>`、指向 `main` 历史提交且与 `pyproject.toml` 版本完全一致的标签才会发布 GHCR 镜像。发布镜像附带 SBOM、BuildKit 来源证明和 GitHub OIDC Cosign 签名。
 
-## 说明
+当前工作流构建 `linux/amd64`。ARM 环境应在目标机器使用 Compose 本地构建。
 
-- 当前 WebUI 运行时会直接调用官方 `pdf2zh_next.high_level.do_translate_async_stream`
-- 首次真实翻译时，BabelDOC 可能下载字体和模型资源，因此第一次会明显更慢
-- 如果只想做 smoke test，建议使用简单英文 PDF，并在设置里关闭 `translate_tables`
+## 许可证与对应源码
 
-## 来源与修改
-
-- 来源、修改范围和第三方运行时说明见 [NOTICE](https://github.com/SocialYjj/GBabelDocUI/blob/main/NOTICE)。
-- 本项目没有把 `pdf2zh_next` 源码复制到仓库内，而是通过锁定的 `pdf2zh-next` 和 `BabelDOC` 依赖调用官方运行时。
-- 本项目的修改集中在多用户认证、用户配置持久化、翻译历史、文件管理、Web UI 以及部署边界处理。
-
-## License
-
-本项目遵循 [AGPL-3.0 License](https://github.com/SocialYjj/GBabelDocUI/blob/main/LICENSE)，与原项目保持一致。
+本项目及内置的上游运行时子集遵循 [`AGPL-3.0`](LICENSE)。公开网络部署时，应向使用者提供与实际部署版本对应的完整源码；Web UI 页脚已提供本仓库源码与许可证入口。

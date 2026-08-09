@@ -1,19 +1,16 @@
-### Getting Started
+# Getting started
 
-PDFMathTranslate is a powerful PDF translation tool. You can install and start using this tool in various ways.
+The supported GBabelDocUI installation paths are Docker Compose or a local `uv` environment. Use the application through its Web UI.
 
----
+## Supported paths
 
-### Installation
+1. [Docker Compose](./INSTALLATION_docker.md)
+2. [uv](./INSTALLATION_uv.md)
+3. [Web UI](./USAGE_webui.md)
 
-1. [**Windows EXE**](./INSTALLATION_winexe.md) <small>Recommand for Windows</small>
-2. [**Docker**](./INSTALLATION_docker.md) <small>Recommand for Linux</small>
-3. [**uv** (a Python package manager)](./INSTALLATION_uv.md) <small>Recommand for macOS</small>
+## Upstream references
 
----
+The Windows EXE and command-line pages describe the official `pdf2zh-next` project, not GBabelDocUI. Their commands and interfaces are not interchangeable with `gbabeldocui`.
 
-### Usage
-
-1. [Using **WebUI**](./USAGE_webui.md)
-2. [Using **Zotero Plugin**](https://github.com/guaguastandup/zotero-pdf2zh) (Third party program)
-3. [Using **Commandline**](./USAGE_commandline.md)
+- [Upstream Windows EXE reference](./INSTALLATION_winexe.md)
+- [Upstream command-line reference](./USAGE_commandline.md)

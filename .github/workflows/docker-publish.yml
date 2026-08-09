@@ -1,63 +1,238 @@
-name: 构建并发布 Docker 镜像
-
-concurrency:
-  group: docker-publish-${{ github.ref }}
-  cancel-in-progress: true
+name: 验证并发布 GBabelDocUI
 
 on:
   push:
     branches: [main]
-    tags: ['v*']
+    tags: ["v*"]
   pull_request:
-    branches: [main, master]
+    branches: [main]
   workflow_dispatch:
 
+concurrency:
+  group: gbabeldocui-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 jobs:
-  build:
-    name: 构建并扫描镜像
+  quality:
+    name: Python ${{ matrix.python-version }} 测试
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.13"]
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: 安装 uv
+        uses: astral-sh/setup-uv@557e51de59eb14aaaba2ed9621916900a91d50c6 # v6.6.1
+        with:
+          version: "0.9.28"
+          enable-cache: true
+
+      - name: 设置 Python
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: 安装锁定依赖
+        run: |
+          uv lock --check
+          uv sync --dev --frozen
+
+      - name: 运行后端测试
+        run: uv run pytest -q
+
+      - name: 运行 Python 静态检查
+        if: matrix.python-version == '3.13'
+        run: |
+          uv run ruff check gbabeldocui tests
+          uv run ruff format --check gbabeldocui tests
+
+      - name: 检查全部前端 JavaScript
+        if: matrix.python-version == '3.13'
+        shell: bash
+        run: find gbabeldocui/static/js -type f -name '*.js' -print0 | sort -z | xargs -0 -n1 node --check
+
+  package-docs:
+    name: 构建发行包和文档
+    needs: quality
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: 安装 uv
+        uses: astral-sh/setup-uv@557e51de59eb14aaaba2ed9621916900a91d50c6 # v6.6.1
+        with:
+          version: "0.9.28"
+          enable-cache: true
+
+      - name: 设置 Python
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
+        with:
+          python-version: "3.13"
+
+      - name: 安装锁定依赖
+        run: |
+          uv lock --check
+          uv sync --dev --frozen
+
+      - name: 严格构建文档
+        run: uv run mkdocs build --strict --clean
+
+      - name: 构建 wheel 和 sdist
+        run: uv run python -m build
+
+      - name: 审计发行包内容
+        shell: bash
+        run: |
+          uv run python - <<'PY'
+          from pathlib import Path, PurePosixPath
+          from tarfile import open as open_tar
+          from zipfile import ZipFile
+
+          wheels = list(Path("dist").glob("*.whl"))
+          sdists = list(Path("dist").glob("*.tar.gz"))
+          if len(wheels) != 1:
+              raise SystemExit(f"Expected one wheel, found {len(wheels)}")
+          if len(sdists) != 1:
+              raise SystemExit(f"Expected one sdist, found {len(sdists)}")
+          forbidden_parts = {"data", ".git", ".venv", "__pycache__", "site", "node_modules"}
+          forbidden_suffixes = {".db", ".sqlite", ".sqlite3", ".pdf", ".docx", ".key", ".pem", ".p12", ".pfx"}
+
+          def validate_name(name: str) -> None:
+              path = PurePosixPath(name)
+              lowered_parts = {part.lower() for part in path.parts}
+              if forbidden_parts.intersection(lowered_parts) or path.suffix.lower() in forbidden_suffixes:
+                  raise SystemExit(f"Forbidden archive entry: {name}")
+              if path.name.lower() in {".env", "users.db", "settings.json", "history.json"}:
+                  raise SystemExit(f"Forbidden archive file: {name}")
+
+          with ZipFile(wheels[0]) as archive:
+              names = archive.namelist()
+          for name in names:
+              validate_name(name)
+          required = {
+              "gbabeldocui/static/index.html",
+              "gbabeldocui/static/js/api.js",
+              "gbabeldocui/static/js/auth.js",
+              "gbabeldocui/static/js/login-page.js",
+              "gbabeldocui/static/js/register-page.js",
+              "gbabeldocui/static/js/settings-page.js",
+              "gbabeldocui/static/js/upload-page.js",
+              "gbabeldocui/_vendor/pdf2zh_next/UPSTREAM.md",
+              "gbabeldocui/_vendor/pdf2zh_next/LICENSE",
+          }
+          missing = sorted(required.difference(names))
+          if missing:
+              raise SystemExit(f"Missing wheel entries: {missing}")
+          metadata_name = next(name for name in names if name.endswith(".dist-info/METADATA"))
+          with ZipFile(wheels[0]) as archive:
+              metadata = archive.read(metadata_name).decode("utf-8")
+          for forbidden_dependency in ("Requires-Dist: pdf2zh-next", "Requires-Dist: gradio"):
+              if forbidden_dependency in metadata:
+                  raise SystemExit(f"Unexpected wheel dependency: {forbidden_dependency}")
+
+          with open_tar(sdists[0], "r:gz") as archive:
+              sdist_names = [member.name for member in archive.getmembers() if member.isfile()]
+          for name in sdist_names:
+              validate_name(name)
+          required_sdist_suffixes = {
+              "pyproject.toml",
+              "README.md",
+              "LICENSE",
+              "NOTICE",
+              "gbabeldocui/static/index.html",
+              "gbabeldocui/_vendor/pdf2zh_next/UPSTREAM.md",
+              "gbabeldocui/_vendor/pdf2zh_next/LICENSE",
+          }
+          for suffix in required_sdist_suffixes:
+              if not any(name.endswith(suffix) for name in sdist_names):
+                  raise SystemExit(f"Missing sdist entry: {suffix}")
+          PY
+
+      - name: 使用标准 pip 隔离安装 wheel
+        shell: bash
+        env:
+          GBABELDOCUI_DATA_DIR: ${{ runner.temp }}/wheel-data
+          GBABELDOCUI_COOKIE_SECURE: "false"
+        run: |
+          python -m venv "$RUNNER_TEMP/wheel-venv"
+          "$RUNNER_TEMP/wheel-venv/bin/python" -m pip install dist/*.whl
+          "$RUNNER_TEMP/wheel-venv/bin/python" -m pip check
+          mkdir -p "$RUNNER_TEMP/wheel-smoke"
+          cd "$RUNNER_TEMP/wheel-smoke"
+          "$RUNNER_TEMP/wheel-venv/bin/python" - <<'PY'
+          import importlib.resources
+          import importlib.util
+          from pathlib import Path
+          import sys
+
+          import gbabeldocui
+          import gbabeldocui.web_api
+
+          package_root = Path(gbabeldocui.__file__).resolve().parent
+          venv_root = Path(sys.prefix).resolve()
+          if venv_root not in package_root.parents:
+              raise SystemExit(
+                  f"Imported gbabeldocui from {package_root}, outside wheel environment {venv_root}"
+              )
+          static_root = importlib.resources.files("gbabeldocui").joinpath("static")
+          if not static_root.joinpath("index.html").is_file():
+              raise SystemExit("Static Web UI was not packaged")
+          if not static_root.joinpath("js/upload-page.js").is_file():
+              raise SystemExit("Frontend scripts were not packaged")
+          if importlib.util.find_spec("pdf2zh_next") is not None:
+              raise SystemExit("External pdf2zh_next unexpectedly installed")
+          PY
+
+  image:
+    name: 构建、扫描并按标签发布镜像
+    needs: [quality, package-docs]
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
       security-events: write
+      id-token: write
 
     steps:
-      - name: 检出代码
-        uses: actions/checkout@v7.0.1
+      - name: 检出完整历史
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
 
-      - name: 判断是否允许发布
+      - name: 设置 Python
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
+        with:
+          python-version: "3.13"
+
+      - name: 校验发布标签
         id: release
         shell: bash
         run: |
-          if [[ "${GITHUB_REF}" == "refs/heads/main" || "${GITHUB_REF}" == refs/tags/v* ]]; then
-            echo "enabled=true" >> "$GITHUB_OUTPUT"
-          else
+          if [[ "$GITHUB_REF" != refs/tags/v* ]]; then
             echo "enabled=false" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
-
-      - name: 安装 uv
-        uses: astral-sh/setup-uv@v6.6.1
-
-      - name: 设置 Python
-        uses: actions/setup-python@v6.0.0
-        with:
-          python-version: '3.13'
-
-      - name: 安装项目依赖
-        run: uv sync --dev --frozen
-
-      - name: 运行后端测试和静态检查
-        run: |
-          uv run pytest -q
-          uv run ruff check gbabeldocui tests
-          uv run ruff format --check gbabeldocui tests
-
-      - name: 检查前端 JavaScript
-        shell: bash
-        run: |
-          node --check gbabeldocui/static/js/api.js
-          node --check gbabeldocui/static/js/auth.js
-          node --check gbabeldocui/static/js/i18n.js
+          project_version="$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
+          expected_tag="v${project_version}"
+          if [[ "$GITHUB_REF_NAME" != "$expected_tag" ]]; then
+            echo "Tag $GITHUB_REF_NAME does not match project version $expected_tag" >&2
+            exit 1
+          fi
+          git fetch origin main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "Release tag must point to a commit contained in origin/main" >&2
+            exit 1
+          fi
+          echo "enabled=true" >> "$GITHUB_OUTPUT"
 
       - name: 设置镜像名称
         id: image
@@ -65,75 +240,82 @@ jobs:
         run: echo "name=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
 
       - name: 设置 Docker Buildx
-        uses: docker/setup-buildx-action@v4.2.0
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
 
       - name: 生成镜像元数据
         id: meta
-        uses: docker/metadata-action@v6.2.0
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
           images: ${{ steps.image.outputs.name }}
           tags: |
+            type=semver,pattern={{version}},enable=${{ steps.release.outputs.enabled == 'true' }}
             type=raw,value=latest,enable=${{ steps.release.outputs.enabled == 'true' }}
-            type=semver,pattern={{version}}
-            type=sha,prefix=,format=short
 
-      - name: 构建待扫描镜像
-        uses: docker/build-push-action@v7.3.0
+      - name: 构建本地扫描镜像
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
           file: ./Dockerfile
           platforms: linux/amd64
           load: true
           tags: local/gbabeldocui:${{ github.sha }}
-          labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: 生成 Trivy 漏洞报告
-        uses: aquasecurity/trivy-action@v0.36.0
+      - name: 生成 Trivy SARIF 报告
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: local/gbabeldocui:${{ github.sha }}
           format: sarif
           output: trivy-results.sarif
           severity: CRITICAL,HIGH
+          ignore-unfixed: true
 
       - name: 上传 Trivy 扫描结果
-        if: always() && github.event_name != 'pull_request'
-        uses: github/codeql-action/upload-sarif@v4.37.4
+        if: ${{ always() && hashFiles('trivy-results.sarif') != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
+        uses: github/codeql-action/upload-sarif@f205ea1c3313d32999d8d6a48b4f6530d4437b38 # v4.37.4
         with:
           sarif_file: trivy-results.sarif
 
-      # 官方 pdf2zh-next 2.9.0 仍声明 gradio<5.36；pyproject.toml 已覆盖该过时约束，
-      # 使用安全修复版本。PR、main 推送和正式版本标签都必须通过安全门禁后才允许发布。
-      - name: PR、main 和正式发布安全门禁
-        if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
-        uses: aquasecurity/trivy-action@v0.36.0
+      - name: 执行高危漏洞门禁
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: local/gbabeldocui:${{ github.sha }}
           format: table
           severity: CRITICAL,HIGH
           ignore-unfixed: true
-          exit-code: '1'
+          exit-code: "1"
 
       - name: 登录 GitHub Container Registry
         if: steps.release.outputs.enabled == 'true'
-        uses: docker/login-action@v4.6.0
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: 发布已验证镜像
+      - name: 发布带 SBOM 和来源证明的镜像
         if: steps.release.outputs.enabled == 'true'
-        shell: bash
+        id: publish
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          provenance: mode=max
+          sbom: true
+
+      - name: 安装 Cosign
+        if: steps.release.outputs.enabled == 'true'
+        uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v4.0.0
+
+      - name: 使用 GitHub OIDC 签名镜像
+        if: steps.release.outputs.enabled == 'true'
         env:
-          IMAGE_TAGS: ${{ steps.meta.outputs.tags }}
-        run: |
-          source_image="local/gbabeldocui:${GITHUB_SHA}"
-          while IFS= read -r image_tag; do
-            if [[ -z "$image_tag" ]]; then
-              continue
-            fi
-            docker tag "$source_image" "$image_tag"
-            docker push "$image_tag"
-          done <<< "$IMAGE_TAGS"
+          IMAGE_NAME: ${{ steps.image.outputs.name }}
+          IMAGE_DIGEST: ${{ steps.publish.outputs.digest }}
+        run: cosign sign --yes "${IMAGE_NAME}@${IMAGE_DIGEST}"

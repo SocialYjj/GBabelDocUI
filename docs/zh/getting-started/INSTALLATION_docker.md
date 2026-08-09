@@ -1,57 +1,61 @@
-[**开始使用**](./getting-started.md) > **如何安装** > **Docker** _(当前)_
+[**开始使用**](./getting-started.md) > **安装** > **Docker** _(当前)_
 
 ---
 
-### 通过 docker 安装 GBabelDocUI
+# 使用 Docker Compose 安装 GBabelDocUI
 
-#### 什么是 docker？
+需要 Docker Engine、Compose v2 和 Git。仓库内的 Compose 配置包含必要的持久化挂载和安全限制，是受支持的容器部署方式。
 
-[Docker](https://docs.docker.com/get-started/docker-overview/) 是一个用于开发、运输和运行应用程序的开放平台。Docker 使您能够将应用程序与基础设施分离，从而可以快速交付软件。通过 Docker，您可以用管理应用程序的方式来管理基础设施。利用 Docker 的代码运输、测试和部署方法，您可以显著减少编写代码与在生产环境中运行代码之间的延迟。
+## 本机启动
 
-#### 如何安装
+```bash
+git clone https://github.com/SocialYjj/GBabelDocUI.git
+cd GBabelDocUI
+```
 
-<h4>1. Start the application with the repository Compose file:</h4>
+Linux 需要先让容器用户能够写入绑定的数据目录：
+
+```bash
+mkdir -p data
+sudo chown -R 10001:10001 data
+```
+
+构建并启动服务：
 
 ```bash
 docker compose up -d --build
 ```
 
-> [!NOTE]
->
-> The Compose file persists `./data` for accounts, settings, uploads and outputs. The default port binding is `127.0.0.1:7860`; put the service behind an HTTPS reverse proxy before exposing it publicly.
->
-> After the first successful GitHub Actions publish, you can use the amd64 GHCR image instead:
->
-> ```bash
-> docker pull ghcr.io/socialyjj/gbabeldocui:latest
-> docker run -d --name gbabeldocui --restart unless-stopped -p 127.0.0.1:7860:7860 -v "$(pwd)/data:/app/data" ghcr.io/socialyjj/gbabeldocui:latest
-> ```
-<h4>2. 在默认浏览器中输入此 URL 以打开 WebUI 页面：</h4>
+打开 `http://127.0.0.1:7860/login.html`。本机 Compose 默认设置 `GBABELDOCUI_COOKIE_SECURE=false`，因为服务通过回环 HTTP 访问。
 
-```
-http://localhost:7860/
+## 通过 HTTPS 公开服务
+
+公开服务前先配置 HTTPS 反向代理，并至少使用以下环境变量启动：
+
+```bash
+export GBABELDOCUI_COOKIE_SECURE=true
+export GBABELDOCUI_SETUP_TOKEN='replace-with-a-long-random-one-time-value'
+docker compose up -d --build
 ```
 
-> [!NOTE]
-> 如果在使用 WebUI 时遇到任何问题，请参考 [如何使用 --> WebUI](./USAGE_webui.md)。
+只有首个管理员必须远程创建时才需要设置初始化令牌。初始化完成后立即移除该变量并重启服务。
 
-> [!NOTE]
-> 如果在使用命令行时遇到任何问题，请参考 [如何使用 --> 命令行](./USAGE_commandline.md)。
-<!-- 
-#### For docker deployment on cloud service:
+不要扩容服务，也不要增加多个 Uvicorn worker。一个 `data/` 目录只能由一个应用进程持有，第二个实例使用相同目录时会主动快速失败。
 
-<div>
-<a href="https://www.heroku.com/deploy?template=https://github.com/GBabelDocUI/GBabelDocUI-next">
-  <img src="https://www.herokucdn.com/deploy/button.svg" alt="Deploy" height="26"></a>
-<a href="https://render.com/deploy">
-  <img src="https://render.com/images/deploy-to-render-button.svg" alt="Deploy to Koyeb" height="26"></a>
-<a href="https://zeabur.com/templates/5FQIGX?referralCode=reycn">
-  <img src="https://zeabur.com/button.svg" alt="Deploy on Zeabur" height="26"></a>
-<a href="https://app.koyeb.com/deploy?type=git&builder=buildpack&repository=github.com/GBabelDocUI/GBabelDocUI-next&branch=main&name=pdf-math-translate">
-  <img src="https://www.koyeb.com/static/images/deploy/button.svg" alt="Deploy to Koyeb" height="26"></a>
-</div>
+## 持久化数据
 
--->
+- `./data:/app/data` 保存账户、设置、任务历史、上传文件和输出文件。
+- `babeldoc-cache` 命名卷保存 `/cache` 下的模型和字体缓存。
+- 容器根文件系统只读，`/tmp` 使用有容量限制的临时文件系统。
 
-<div align="right"> 
-<h6><small>本页面的部分内容由 GPT 翻译，可能包含错误。</small></h6>
+禁止提交、打包或公开 `./data`。
+
+## 检查和停止
+
+```bash
+docker compose ps
+docker compose logs --tail 200 gbabeldocui
+docker compose down
+```
+
+除非显式删除，`docker compose down` 不会删除 `./data` 或命名缓存卷。

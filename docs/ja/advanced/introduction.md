@@ -1,18 +1,11 @@
-### 高度な設定
+> This locale currently uses the canonical English text to avoid publishing outdated translated instructions.
 
-このセクションは、このソフトウェアの上級ユーザー向けです。ここでは以下の情報を見つけることができます：
+# Advanced settings
 
-1. [**高度な設定**](./advanced.md)
-<br>
-このセクションでは、特定のソース／ターゲット言語の指定、翻訳サービスの切り替えなどが可能です。
+GBabelDocUI exposes the supported BabelDOC options through the authenticated settings page.
 
-2. [**言語コード**](./Language-Codes.md)
-<br>
-翻訳元／翻訳先の言語にどのコードを使用すべきかわからない場合は、こちらで確認できます。
+- [Web UI settings](./advanced.md)
+- [Translation services](./Documentation-of-Translation-Services.md)
+- [Language codes](./Language-Codes.md)
 
-3. [**翻訳サービスドキュメント**](./Documentation-of-Translation-Services.md)
-<br>
-使用中の翻訳サービスのドキュメントを確認する必要がある場合は、このページを参照してください。
-
-<div align="right"> 
-<h6><small>このページの一部のコンテンツは GPT によって翻訳されており、エラーが含まれている可能性があります。</small></h6>
+The bundled runtime does not expose the upstream CLI, Gradio UI, HTTP API, or a stable public Python API.

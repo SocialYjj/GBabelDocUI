@@ -1,61 +1,7 @@
-[**Начало работы**](./getting-started.md) > **Установка** > **Windows EXE** _(текущая)_
+> This locale currently uses the canonical English text to avoid publishing outdated translated instructions.
 
----
+# Upstream Windows EXE reference
 
-> **Примечание о назначении:** Эта страница является справочным материалом по официальной [Windows EXE-версии `pdf2zh-next`](https://github.com/PDFMathTranslate-next/PDFMathTranslate-next). Она не описывает Web UI GBabelDocUI. Описание Web UI GBabelDocUI приведено в [`USAGE_webui.md`](./USAGE_webui.md) и инструкции Docker. Не заменяйте `pdf2zh_next` на `gbabeldocui`: аргументы командной строки несовместимы.
+GBabelDocUI does not publish or bundle a Windows EXE. The supported GBabelDocUI installation paths are [Docker Compose](./INSTALLATION_docker.md) and [uv](./INSTALLATION_uv.md).
 
-### Установка PDFMathTranslate через файл .exe
-
-***Шаг 1*** | Загрузите `pdf2zh-<version>-with-assets-win64.zip` со [страницы релизов](https://github.com/PDFMathTranslate/PDFMathTranslate-next/releases).
-
-> [!TIP]
-> **В чем разница между `pdf2zh-<version>-with-assets-win64.zip` и `pdf2zh-<version>-win64.zip`?**
->
-> - Если вы скачиваете и используете PDFMathTranslate впервые, рекомендуется загрузить `pdf2zh-<version>-with-assets-win64.zip`.
-> - В `pdf2zh-<version>-with-assets-win64.zip` включены файлы ресурсов (например, шрифты и модели) по сравнению с `pdf2zh-<version>-win64.zip`.
-> - Версия без ресурсов также будет динамически загружать ресурсы при запуске, но загрузка может завершиться неудачно из-за проблем с сетью.
-
-***Шаг 2*** | Распакуйте `pdf2zh-<version>-with-assets-win64.zip` и перейдите в папку `pdf2zh`. Распаковка может занять некоторое время, пожалуйста, подождите.
-
-***Шаг 3*** | Перейдите в папку `pdf2zh`, затем дважды щелкните по файлу `pdf2zh.exe`.
-
-> [!TIP]
-> **Не удается запустить файл .exe**
->
-> Если у вас возникли проблемы с запуском pdf2zh.exe, установите `https://aka.ms/vs/17/release/vc_redist.x64.exe` и попробуйте снова.
-
-***Шаг 4*** | После двойного щелчка по файлу exe появится терминал. Примерно через полминуты или минуту в вашем браузере по умолчанию откроется веб-страница. Если этого не произошло, попробуйте вручную перейти по адресу `http://localhost:7860/`.
-
-> [!NOTE]
->
-> Если у вас возникли проблемы при использовании WebUI, обратитесь к [этой веб-странице](./USAGE_webui.md).
-
-***Шаг 5*** | Наслаждайтесь!
-
-> [!TIP]
-> **Вы можете использовать файл .exe через командную строку**
->
-> Используйте файл .exe через командную строку следующим образом:
->
-> - Запустите терминал и перейдите в папку, содержащую файл .exe:
->
-> ```bash
-> cd /path/pdf2zh_next/build
-> ```
->
-> - Вызовите файл .exe:
->
-> ```bash
-> ./pdf2zh_next.exe "document.pdf"
-> ```
->
-> Вы можете использовать другие параметры командной строки как обычно:
->
-> ```bash
-> ./pdf2zh_next.exe "document.pdf" --lang-in en --lang-out ja
-> ```
->
-> Если вам нужна дополнительная информация об использовании командной строки, обратитесь к этой статье.
-
-<div align="right"> 
-<h6><small>Часть содержимого этой страницы была переведена GPT и может содержать ошибки.</small></h6>
+For the standalone upstream Windows package, use the official [PDFMathTranslate-next releases](https://github.com/PDFMathTranslate-next/PDFMathTranslate-next/releases) and follow the instructions shipped with that release. Do not treat the upstream executable as a GBabelDocUI build.

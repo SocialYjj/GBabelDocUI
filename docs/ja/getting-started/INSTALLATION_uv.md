@@ -1,81 +1,44 @@
-[**開始**](./getting-started.md) > **インストール** > **uv** _(現在)_
+# uv で GBabelDocUI をインストール
 
----
+必要な検証済み pdf2zh-next ランタイムは同梱済みです。上流 CLI を `gbabeldocui` の代わりに使用しないでください。
 
-> **対象範囲に関する注意:** このページは公式 [`pdf2zh-next` uv インストール](https://github.com/PDFMathTranslate-next/PDFMathTranslate-next) の参考資料です。GBabelDocUI Web UI の説明ではありません。GBabelDocUI Web UI については [`USAGE_webui.md`](./USAGE_webui.md) と Docker の手順を参照してください。`pdf2zh_next` を `gbabeldocui` に置き換えないでください。コマンドライン引数には互換性がありません。
+## 必要な環境
 
-### uv 経由で PDFMathTranslate をインストール
+- Python 3.10–3.13
+- Git
+- [uv](https://docs.astral.sh/uv/getting-started/installation/)
 
-#### uv とは？インストール方法は？
+## インストールと実行
 
-uv は Python のパッケージマネージャーで、高速で信頼性の高い依存関係解決を提供します。インストール方法は以下の通りです：
-
-1. **pip を使用してインストール**：
-   ```bash
-   pip install uv
-   ```
-
-2. **conda を使用してインストール**（conda 環境の場合）：
-   ```bash
-   conda install -c conda-forge uv
-   ```
-
-3. **直接ダウンロード**：
-   [公式サイト](https://uv.pm/) からお使いの OS に合ったバージョンをダウンロードしてインストールできます。
-
-インストール後、以下のコマンドでバージョンを確認できます：
 ```bash
-uv --version
+git clone https://github.com/SocialYjj/GBabelDocUI.git
+cd GBabelDocUI
+uv sync --frozen
 ```
 
-uv は Rust で書かれた非常に高速な Python パッケージおよびプロジェクトマネージャーです。
-<br>
-uv をコンピュータにインストールするには、[この記事](https://docs.astral.sh/uv/getting-started/installation/) を参照してください。
-
----
-
-#### インストール
-
-1. Python がインストールされていること（3.10 <= バージョン <= 3.12）；
-
-2. 以下のコマンドを使用してパッケージをインストールします：
+=== "Linux/macOS"
 
     ```bash
-    pip install uv
-    uv tool install --python 3.12 pdf2zh-next
+    export GBABELDOCUI_COOKIE_SECURE=false
+    uv run gbabeldocui
     ```
 
-インストール後、**コマンドライン**または **WebUI** を介して翻訳を開始できます。
+=== "Windows PowerShell"
 
-!!! Warning
+    ```powershell
+    $env:GBABELDOCUI_COOKIE_SECURE = "false"
+    uv run gbabeldocui
+    ```
 
-    `command not found: pdf2zh_next` というエラーが表示された場合、以下のように環境変数を設定して再度お試しください：
+起動後に `http://127.0.0.1:7860/login.html` を開きます。
 
-    === "macOS と Linux"
+公開環境では Secure Cookie を維持し、HTTPS とデータディレクトリごとに 1 インスタンスを使用します。
 
-        ~/.zshrc に以下を追加：
+## 開発環境
 
-        ```console
-        export PATH="$PATH:/Users/Username/.local/bin"
-        ```
-
-        その後、ターミナルを再起動
-
-    === "Windows"
-
-        PowerShell で以下を入力：
-
-        ```powershell
-        $env:Path = "C:\Users\Username\.local\bin;$env:Path"
-        ```
-
-        その後、ターミナルを再起動
-
-> [!NOTE]
-> WebUI の使用中に問題が発生した場合は、[使い方 --> WebUI](./USAGE_webui.md) を参照してください。
-
-> [!NOTE]
-> コマンドラインの使用中に問題が発生した場合は、[使い方 --> コマンドライン](./USAGE_commandline.md) を参照してください。
-
-<div align="right"> 
-<h6><small>このページの一部のコンテンツは GPT によって翻訳されており、エラーが含まれている可能性があります。</small></h6>
+```bash
+uv sync --dev --frozen
+uv run pytest -q
+uv run ruff check gbabeldocui tests
+uv run ruff format --check gbabeldocui tests
+```

@@ -1,82 +1,39 @@
-Alcune domande vengono poste frequentemente, quindi abbiamo fornito un elenco per gli utenti che incontrano problemi simili.
+> This locale currently uses the canonical English text to avoid publishing outdated translated instructions.
 
-## È necessaria una GPU?
-- **Domanda**:
-Il programma utilizza l'intelligenza artificiale per riconoscere ed estrarre documenti, è necessaria una GPU?
+# Frequently asked questions
 
-- **Risposta**:
-**Non è necessaria una GPU.** Ma se hai una GPU, il programma la utilizzerà automaticamente per prestazioni più elevate.
+## Why did the browser not open automatically?
 
-## Download interrotta?
-- **Domanda**:
-Ho riscontrato il seguente errore di interruzione durante il download del modello. Cosa devo fare?
+`gbabeldocui` starts the server but does not launch a browser. Open `http://127.0.0.1:7860/login.html` manually.
 
-  ![image](https://github.com/user-attachments/assets/3c4eed44-3d9b-4e2f-a224-a58edca718c2)
+## Why does local HTTP return to the login page?
 
-- **Risposta**:
-La rete sta subendo interferenze, utilizza un collegamento di rete stabile o prova a bypassare l'intervento della rete.
+Secure cookies are enabled by default. For loopback HTTP only, set `GBABELDOCUI_COOKIE_SECURE=false` before starting the service. Public deployments must use HTTPS and keep the value `true`.
 
-## Come aggiornare all'ultima versione?
-- **Domanda**:
-Voglio utilizzare alcune funzionalità dell'ultima versione, come posso aggiornarla?
+## Why can I not create the first administrator remotely?
 
-- **Risposta**:
-`pip install -U pdf2zh`
+Local setup is the default security boundary. For a trusted remote initialization, set a one-time high-entropy `GBABELDOCUI_SETUP_TOKEN`, complete setup, then remove the variable and restart the service.
 
+## Can several workers or containers share one data directory?
 
-## I seguenti file non esistono: example.pdf
-- **Problema**:
-Durante l'esecuzione del programma, gli utenti otterranno i seguenti output: `The following files do not exist: example.pdf` se il documento non è stato trovato.
+No. The application intentionally allows one process and one replica per `data/` directory. A second instance fails fast instead of corrupting task state.
 
-- **Soluzione**:
-  - Apri la riga di comando nella directory in cui si trova il file, oppure
-  - Inserisci il percorso completo del file direttamente dopo pdf2zh, oppure
-  - Usa la modalità interattiva `pdf2zh -i` per trascinare e rilasciare i file direttamente
+## What happens after a restart?
 
+Task state and history are stored in SQLite. Incomplete tasks are reconciled during startup; completed, failed, and cancelled records follow the configured retention policy.
 
-## Errore SSL e altri problemi di rete
+## Why is an API-key field empty after reloading settings?
 
-Se riscontri errori SSL o altri problemi di rete durante l'utilizzo di `pdf2zh`, segui questi passaggi per risolverli:
+Saved keys are never returned to the browser. Leave the field empty to keep the existing key, or enter a new value to replace it.
 
-1. **Verifica la connessione Internet**:
-   - Assicurati che il tuo dispositivo sia connesso a Internet.
-   - Prova ad accedere ad altri siti web per verificare la connessione.
+## Where are uploads and results stored?
 
-2. **Aggiorna i certificati SSL**:
-   - Su Windows, esegui `certmgr.msc` e aggiorna i certificati.
-   - Su macOS/Linux, esegui `sudo update-ca-certificates`.
+They are stored under the configured `GBABELDOCUI_DATA_DIR`, normally `data/users/<username>/`. This directory can contain credentials and private documents and must not be committed or published.
 
-3. **Disabilita temporaneamente il firewall/antivirus**:
-   - Alcuni firewall o software antivirus potrebbero bloccare la connessione. Prova a disabilitarli temporaneamente.
+## How do I update?
 
-4. **Usa una VPN o cambia rete**:
-   - Prova a connetterti tramite una VPN o cambia rete (ad esempio, da Wi-Fi a dati mobili).
+For a source installation, use `git pull --ff-only`, then `uv sync --frozen`. For Compose, pull the source update and run `docker compose up -d --build`. Back up the protected data directory while the service is stopped before a major operational change.
 
-5. **Controlla la data e l'ora del sistema**:
-   - Un'ora o data errata può causare errori SSL. Assicurati che siano corrette.
+## Why was an upload rejected with HTTP 413?
 
-Se il problema persiste, contatta il supporto tecnico fornendo i dettagli dell'errore.
-- **Problema**:
-Durante il download dei modelli di Hugging Face, gli utenti in Cina potrebbero riscontrare errori di rete. Ad esempio, nei [issue #55](https://github.com/PDFMathTranslate/PDFMathTranslate-next/issues/55), [#70](https://github.com/PDFMathTranslate/PDFMathTranslate-next/issues/70).
-
-- **Soluzione**:
-  - [Bypass GFW](https://github.com/clash-verge-rev/clash-verge-rev).
-  - [Usa Hugging Face Mirror](https://hf-mirror.com/).
-  - [Usa la versione portatile](https://github.com/PDFMathTranslate/PDFMathTranslate-next?tab=readme-ov-file#method-ii-portable).
-  - [Usa Docker invece](https://github.com/PDFMathTranslate/PDFMathTranslate-next#docker).
-  - [Aggiorna i certificati](https://stackoverflow.com/questions/51925384/unable-to-get-local-issuer-certificate-when-using-requests), come suggerito nell'[issue #55](https://github.com/PDFMathTranslate/PDFMathTranslate-next/issues/55).
-
-## Localhost non è accessibile
-Per favore, vedi sotto.
-
-## Errore durante l'avvio della GUI utilizzando 0.0.0.0
-- **Problema**:
-L'utilizzo di software proxy in modalità globale potrebbe impedire il corretto avvio di Gradio. Ad esempio, nel [issue #77](https://github.com/PDFMathTranslate/PDFMathTranslate-next/issues/77).
-
-- **Soluzione**:
-Modalità di utilizzo delle regole
-
-  ![image](https://github.com/user-attachments/assets/b1f2b16a-eb6a-4c03-995c-332ef1d82c96)
-
-<div align="right"> 
-<h6><small>Parte del contenuto di questa pagina è stata tradotta da GPT e potrebbe contenere errori.</small></h6>
+The request exceeded `GBABELDOCUI_MAX_UPLOAD_BYTES` or the streaming request-body limit. Raising the limit also increases storage and processing exposure; keep it bounded for public deployments.

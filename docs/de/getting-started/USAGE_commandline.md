@@ -1,52 +1,7 @@
-[**Erste Schritte**](./getting-started.md) > **Verwendung** > **Kommandozeile** _(aktuell)_
+> This locale currently uses the canonical English text to avoid publishing outdated translated instructions.
 
----
+# Upstream command-line reference
 
-> **Hinweis zum Geltungsbereich:** Diese Seite ist eine Referenz für die offizielle [`pdf2zh-next`-Kommandozeile](https://github.com/PDFMathTranslate-next/PDFMathTranslate-next). Sie beschreibt nicht die GBabelDocUI-Weboberfläche. Für die GBabelDocUI-Weboberfläche verwenden Sie [`USAGE_webui.md`](./USAGE_webui.md) und die Docker-Anleitung. Ersetzen Sie `pdf2zh_next` nicht durch `gbabeldocui`, da die Kommandozeilenargumente nicht kompatibel sind.
+GBabelDocUI provides the `gbabeldocui` command only to start its Web server. It does not bundle the upstream `pdf2zh_next` CLI.
 
-### Verwenden Sie PDFMathTranslate über die Kommandozeile
-
-#### Grundlegende Verwendung
-
-Nach der Installation geben Sie bitte diesen Befehl ein, um Ihr PDF zu übersetzen.
-
-```bash
-pdf2zh_next document.pdf
-```
-
-> [!NOTE]
-> 
-> Wenn Ihr Pfadname Leerzeichen enthält, schließen Sie ihn bitte in Anführungszeichen ein.
-> 
-> ```bash
-> pdf2zh_next "path with spaces/document.pdf"
-> ```
-
-Nach der Ausführung der Übersetzung werden Dateien im **aktuellen Arbeitsverzeichnis** erstellt.
-
-> [!TIP]
-> **Wo ist mein "aktuelles Arbeitsverzeichnis"?**
-> Bevor Sie einen Befehl im Terminal eingeben, sehen Sie möglicherweise einen Pfadnamen in Ihrem Terminal angezeigt:
-> 
-> ```powershell
-> PS C:\Users\XXX>
-> ```
-> 
-> Dieses Verzeichnis ist das "*Aktuelle Arbeitsverzeichnis*."
-> 
-> Wenn kein Pfadname angezeigt wird, versuchen Sie, diesen Befehl im Terminal auszuführen:
-> 
-> ```bash
-> pwd
-> ```
-> 
-> Nach der Ausführung dieses Befehls wird ein Pfadname ausgegeben. Dieser Pfadname ist das "**Aktuelle Arbeitsverzeichnis**". Die übersetzten Dateien werden hier erscheinen.
-
----
-
-#### Erweiterte Verwendung
-
-Für detaillierte Erklärungen zusätzlicher Kommandozeilenparameter lesen Sie bitte [erweiterte Verwendung](./../advanced/advanced.md).
-
-<div align="right"> 
-<h6><small>Ein Teil des Inhalts dieser Seite wurde von GPT übersetzt und kann Fehler enthalten.</small></h6>
+For standalone command-line PDF translation, install the official [PDFMathTranslate-next project](https://github.com/PDFMathTranslate-next/PDFMathTranslate-next) and use its version-matched documentation. The `gbabeldocui` and `pdf2zh_next` commands are not interchangeable.

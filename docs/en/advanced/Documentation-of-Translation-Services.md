@@ -1,48 +1,24 @@
-[**Advanced**](./introduction.md) > **Documentation of Translation Services** _(current)_
+# Translation services
 
----
+The current GBabelDocUI settings page exposes three fully configurable services.
 
-> **Scope note:** This page is a reference for the official [`pdf2zh-next` translation-service documentation](https://github.com/PDFMathTranslate-next/PDFMathTranslate-next). It does **not** document the GBabelDocUI Web UI. Use [`USAGE_webui.md`](../getting-started/USAGE_webui.md) and the Docker instructions for the GBabelDocUI Web UI. Do not replace `pdf2zh_next` with `gbabeldocui`; their command-line arguments are not compatible.
+## OpenAI
 
-### Viewing Available Translate Services via Command Line
+Required fields are the model and API key. The Base URL defaults to the public OpenAI API and can be changed to a compatible public HTTPS endpoint. Optional fields include timeout, temperature, JSON mode, and reasoning effort.
 
-You can confirm the available translate services and their usage by printing the help message in the command line.
+## Azure OpenAI
 
-```bash
-pdf2zh_next -h
-```
+Configure the deployment name, API key, Azure endpoint, and API version. Use the resource endpoint, not a complete chat-completions request URL.
 
-At the end of the help message, you can view detailed information about the different translation services.
+## Google Gemini
 
+Configure the model and API key. JSON mode can be enabled when the selected model supports it.
 
----
+## Credentials and endpoints
 
-### Translation Engine Support Policy
+- API keys are stored server-side and are not returned by the settings API.
+- Leaving a key field empty keeps the saved value; entering a new value replaces it.
+- Custom endpoints are checked for scheme, host, DNS resolution, redirects, and private-address boundaries.
+- Private endpoints are rejected unless an administrator explicitly enables `GBABELDOCUI_ALLOW_PRIVATE_ENDPOINTS=true` in a trusted deployment.
 
-#### Tier 1 (Official Support)
-
-**Tier 1 translation engines** are directly maintained by the project maintainers. Although the maintainers do **not use this project regularly**, they will rely on GitHub issues to identify problems. When any of these engines encounter issues, the maintainers will fix them as soon as possible to ensure stability and reliability.
-
-
-Currently supported Tier 1 translation engines include:
-1. SiliconFlowFree
-2. OpenAI
-3. AliyunDashScope
-4. DeepSeek
-5. SiliconFlow
-6. Zhipu
-7. OpenAICompatible
-
-#### Tier 2 (Community Support)
-
-**Tier 2 translation engines** are maintained and supported by the community.  
-When these engines encounter issues, the project maintainers will not provide direct fixes. Instead, they will label the related issues with `help wanted` and welcome pull requests from contributors to help resolve them.
-
-All engines that are supported by the program but not explicitly listed under Tier 1 are considered Tier 2 translation engines.
-
-#### Deprecated Engines
-
-The following translation engines have been **deprecated** and will no longer be maintained or supported:
-
-1. Bing
-2. Google
+The backend retains compatibility code for additional upstream translators, but providers without a complete current Web UI configuration are intentionally not offered in the settings page.

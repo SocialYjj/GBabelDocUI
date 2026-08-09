@@ -1,83 +1,39 @@
-Algumas perguntas são frequentemente feitas, por isso fornecemos uma lista para usuários que encontram problemas semelhantes.
+> This locale currently uses the canonical English text to avoid publishing outdated translated instructions.
 
-## É necessária uma GPU?
-- **Pergunta**:
-Como o programa usa inteligência artificial para reconhecer e extrair documentos, é necessária uma GPU?
+# Frequently asked questions
 
-- **Resposta**:
-**Não é necessária uma GPU.** Mas se você tiver uma GPU, o programa irá usá-la automaticamente para melhor desempenho.
+## Why did the browser not open automatically?
 
-## Download interrompido?
-- **Pergunta**:
-Encontrei o seguinte erro de interrupção ao baixar o modelo. O que devo fazer?
+`gbabeldocui` starts the server but does not launch a browser. Open `http://127.0.0.1:7860/login.html` manually.
 
-  ![image](https://github.com/user-attachments/assets/3c4eed44-3d9b-4e2f-a224-a58edca718c2)
+## Why does local HTTP return to the login page?
 
-- **Resposta**:
-A rede está sofrendo interferência, por favor use uma conexão de rede estável ou tente contornar a intervenção da rede.
+Secure cookies are enabled by default. For loopback HTTP only, set `GBABELDOCUI_COOKIE_SECURE=false` before starting the service. Public deployments must use HTTPS and keep the value `true`.
 
-## Como atualizar para a versão mais recente?
-- **Pergunta**:
-Quero usar alguns dos recursos da versão mais recente, como posso atualizá-la?
+## Why can I not create the first administrator remotely?
 
-- **Resposta**:
-`pip install -U pdf2zh`
+Local setup is the default security boundary. For a trusted remote initialization, set a one-time high-entropy `GBABELDOCUI_SETUP_TOKEN`, complete setup, then remove the variable and restart the service.
 
+## Can several workers or containers share one data directory?
 
-## Os seguintes arquivos não existem: example.pdf
-- **Problema**:
-Ao executar o programa, os usuários terão as seguintes saídas: `Os seguintes arquivos não existem: example.pdf` se o documento não for encontrado.
+No. The application intentionally allows one process and one replica per `data/` directory. A second instance fails fast instead of corrupting task state.
 
-- **Solução**:
-  - Abra a linha de comando no diretório onde o arquivo está localizado, ou
-  - Insira o caminho completo do arquivo diretamente após pdf2zh, ou
-  - Use o modo interativo `pdf2zh -i` para arrastar e soltar arquivos diretamente
+## What happens after a restart?
 
+Task state and history are stored in SQLite. Incomplete tasks are reconciled during startup; completed, failed, and cancelled records follow the configured retention policy.
 
-## Erro SSL e Outros Problemas de Rede
+## Why is an API-key field empty after reloading settings?
 
-[!NOTE]
-If you encounter SSL errors or other network issues when using **pdf2zh**, please try the following solutions:
+Saved keys are never returned to the browser. Leave the field empty to keep the existing key, or enter a new value to replace it.
 
-1. **Check Your Internet Connection**: Ensure your device is connected to the internet and can access other websites normally.
+## Where are uploads and results stored?
 
-2. **Update Your System's Root Certificates**:
-   - On **Windows**, run `certmgr.msc` and update the certificates.
-   - On **macOS**, use `Keychain Access` to update the certificates.
-   - On **Linux**, run `sudo update-ca-certificates`.
+They are stored under the configured `GBABELDOCUI_DATA_DIR`, normally `data/users/<username>/`. This directory can contain credentials and private documents and must not be committed or published.
 
-3. **Disable SSL Verification (Not Recommended)**:
-   - Add `--no-ssl-verify` to the command line when using **pdf2zh**.
-   - Example: `pdf2zh --no-ssl-verify input.pdf`.
+## How do I update?
 
-4. **Use a Proxy**:
-   - If you are in a region with network restrictions, try using a proxy or VPN.
+For a source installation, use `git pull --ff-only`, then `uv sync --frozen`. For Compose, pull the source update and run `docker compose up -d --build`. Back up the protected data directory while the service is stopped before a major operational change.
 
-5. **Check the Server Status**:
-   - Visit [PDFMathTranslate Status Page](https://status.pdf2zh.com) to see if there are any ongoing issues.
+## Why was an upload rejected with HTTP 413?
 
-If the problem persists, please contact our [Community](#community) or check the [FAQ](#faq) for more help.
-- **Problema**:
-Ao baixar modelos do Hugging Face, usuários na China podem encontrar erros de rede. Por exemplo, nos [issues #55](https://github.com/PDFMathTranslate/PDFMathTranslate-next/issues/55), [#70](https://github.com/PDFMathTranslate/PDFMathTranslate-next/issues/70).
-
-- **Solução**:
-  - [Bypass GFW](https://github.com/clash-verge-rev/clash-verge-rev).
-  - [Usar Espelho do Hugging Face](https://hf-mirror.com/).
-  - [Usar versão Portátil](https://github.com/PDFMathTranslate/PDFMathTranslate-next?tab=readme-ov-file#method-ii-portable).
-  - [Usar Docker em vez disso](https://github.com/PDFMathTranslate/PDFMathTranslate-next#docker).
-  - [Atualizar Certificados](https://stackoverflow.com/questions/51925384/unable-to-get-local-issuer-certificate-when-using-requests), como sugerido em [issue #55](https://github.com/PDFMathTranslate/PDFMathTranslate-next/issues/55).
-
-## O localhost não está acessível
-Por favor, veja abaixo.
-
-## Erro ao iniciar a GUI usando 0.0.0.0
-- **Problema**:
-O uso de software de proxy no modo global pode impedir que o Gradio seja iniciado corretamente. Por exemplo, no [issue #77](https://github.com/PDFMathTranslate/PDFMathTranslate-next/issues/77).
-
-- **Solução**:
-Usar modo de regra
-
-  ![image](https://github.com/user-attachments/assets/b1f2b16a-eb6a-4c03-995c-332ef1d82c96)
-
-<div align="right"> 
-<h6><small>Parte do conteúdo desta página foi traduzida pelo GPT e pode conter erros.</small></h6>
+The request exceeded `GBABELDOCUI_MAX_UPLOAD_BYTES` or the streaming request-body limit. Raising the limit also increases storage and processing exposure; keep it bounded for public deployments.

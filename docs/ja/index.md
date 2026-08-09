@@ -1,134 +1,59 @@
-<div align="center">
+# GBabelDocUI
 
-<img src="../images/banner.png" width="320px"  alt="banner"/>
+GBabelDocUI は、BabelDOC を利用するセルフホスト型のマルチユーザー PDF 翻訳 Web UI です。
 
-<h2 id="タイトル">GBabelDocUI</h2>
+本プロジェクトは eaiu/GBabelDocUI を基にし、検証済みの pdf2zh-next 2.9.0 ランタイムの一部を同梱しています。上流の CLI、Gradio UI、HTTP API は含みません。
 
-<p>
-  <a href="https://github.com/SocialYjj/GBabelDocUI/pkgs/container/gbabeldocui">
-    <img src="https://img.shields.io/badge/GHCR-GBabelDocUI-blue"></a>
-  <!-- <a href="https://huggingface.co/spaces/reycn/PDFMathTranslate-Docker">
-    <img src="https://img.shields.io/badge/%F0%9F%A4%97-Online%20Demo-FF9E0D"></a> -->
-  <!-- <a href="https://www.modelscope.cn/studios/AI-ModelScope/PDFMathTranslate"> -->
-    <!-- <img src="https://img.shields.io/badge/ModelScope-Demo-blue"></a> -->
-  <!-- <a href="https://github.com/SocialYjj/GBabelDocUI/pulls">
-    <img src="https://img.shields.io/badge/contributions-welcome-green"></a> -->
-  <a href="https://t.me/+Z9_SgnxmsmA5NzBl">
-    <img src="https://img.shields.io/badge/Telegram-2CA5E0?style=flat-squeare&logo=telegram&logoColor=white"></a>
-  <!-- License -->
-  <a href="https://github.com/SocialYjj/GBabelDocUI/blob/main/LICENSE">
-    <img src="https://img.shields.io/github/license/SocialYjj/GBabelDocUI"></a>
-</p>
+## 主な機能
 
-<a href="https://trendshift.io/repositories/12424" target="_blank"><img src="https://trendshift.io/api/badge/repositories/12424" alt="Byaidu%2FPDFMathTranslate | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
+- ユーザーごとに分離されたアカウント、設定、ファイル、タスク、履歴。
+- HttpOnly Cookie、CSRF 対策、ログイン制限、セッション上限。
+- PDF 内容、サイズ、ページ、保存容量、同時実行数の検証。
+- OpenAI、Azure OpenAI、Google Gemini の Web 設定。
+- SQLite 永続化と、単一インスタンス向けに強化された Docker Compose。
 
-</div>
+## クイックスタート
 
-GBabelDocUI is a multi-user Web UI adaptation layer based on the official pdf2zh-next runtime and BabelDOC.
+### Docker Compose
 
-- 📊 数式、チャート、目次、注釈を保持 _([プレビュー](#プレビュー))_。
-- 🌐 [複数言語](./supported_languages.md) をサポートし、多様な [翻訳サービス](./advanced/Documentation-of-Translation-Services.md) に対応。
-- 🤖 [コマンドラインツール](./getting-started/USAGE_commandline.md)、[インタラクティブユーザーインターフェース](./getting-started/USAGE_webui.md)、[Docker](./getting-started/INSTALLATION_docker.md) を提供。
+```bash
+git clone https://github.com/SocialYjj/GBabelDocUI.git
+cd GBabelDocUI
+mkdir -p data
+sudo chown -R 10001:10001 data  # Linux bind mounts only
+docker compose up -d --build
+```
 
-<!-- Feel free to provide feedback in [GitHub Issues](https://github.com/SocialYjj/GBabelDocUI/issues) or [Telegram Group](https://t.me/+Z9_SgnxmsmA5NzBl). -->
+### uv
 
+```bash
+git clone https://github.com/SocialYjj/GBabelDocUI.git
+cd GBabelDocUI
+uv sync --frozen
+export GBABELDOCUI_COOKIE_SECURE=false
+uv run gbabeldocui
+```
 
-<h2 id="preview">プレビュー</h2>
+起動後に `http://127.0.0.1:7860/login.html` を開きます。
 
-<div align="center">
-<!-- <img src="../images/preview.gif" width="80%"  alt="preview"/> -->
-<img src="https://s.immersivetranslate.com/assets/r2-uploads/images/babeldoc-preview.png" width="80%"/>
-</div>
+## デプロイ上の制約
 
-<h2 id="demo">オンラインサービス 🌟</h2>
+- 公開する場合は HTTPS リバースプロキシと `GBABELDOCUI_COOKIE_SECURE=true` が必要です。
+- 最初の管理者はローカルで作成します。遠隔初期化には一度限りの `GBABELDOCUI_SETUP_TOKEN` が必要です。
+- データディレクトリごとに、アプリケーションプロセスとレプリカは 1 つだけです。
+- `data/` にはアカウント、API キー、PDF、生成物が含まれるため公開しないでください。
 
-以下のいずれかのサービスを使用して、アプリケーションをお試しいただけます：
+## ドキュメント
 
-- [Immersive Translate - BabelDOC](https://app.immersivetranslate.com/babel-doc/) 無料利用枠が利用可能です。詳細はページのよくある質問セクションをご参照ください。
+- [Docker](./getting-started/INSTALLATION_docker.md)
+- [uv](./getting-started/INSTALLATION_uv.md)
+- [Web UI](./getting-started/USAGE_webui.md)
+- [Advanced reference](./advanced/advanced.md)
 
-<h2 id="インストール">インストールと使い方</h2>
+## ソースとライセンス
 
-### インストール
+GBabelDocUI と同梱ランタイムは AGPL-3.0 で配布されます。由来、チェックサム、変更範囲は NOTICE と UPSTREAM.md に記載されています。
 
-1. [**Windows EXE**](./getting-started/INSTALLATION_winexe.md) <small>Windows ユーザーにおすすめ</small>
-2. [**Docker**](./getting-started/INSTALLATION_docker.md) <small>Linux ユーザーにおすすめ</small>
-3. [**uv** (Python パッケージマネージャー)](./getting-started/INSTALLATION_uv.md) <small>macOS ユーザーにおすすめ</small>
-
----
-
-### 使い方
-
-1. [**WebUI** の使い方](./getting-started/USAGE_webui.md)
-2. [**Zotero プラグイン** の使い方](https://github.com/guaguastandup/zotero-pdf2zh) (サードパーティ製プログラム)
-3. [**コマンドライン** の使い方](./getting-started/USAGE_commandline.md)
-
-異なるユースケースに対応するため、当プログラムには複数の使用方法が用意されています。詳細については [こちらのページ](./getting-started/getting-started.md) をご覧ください。
-
-<h2 id="usage">高度なオプション</h2>
-
-各オプションの詳細な説明については、[高度な使い方](./advanced/advanced.md) のドキュメントで全オプション一覧をご確認ください。
-
-<h2 id="downstream">二次開発（API）</h2>
-
-<!-- <!-- For downstream applications, please refer to our document about [API Details](./docs/APIS.md) for futher information about: -->
-
-- [Python API](./advanced/API/python.md)、他の Python プログラムで本プログラムを使用する方法
-<!-- - [HTTP API](./docs/APIS.md#api-http), how to communicate with a server with the program installed -->
-
-<h2 id="langcode">言語コード</h2>
-
-必要な言語に翻訳するためのコードがわからない場合は、[こちらのドキュメント](./advanced/Language-Codes.md) を確認してください。
-
-<h2 id="acknowledgement">謝辞</h2>
-
-- [Immersive Translation](https://immersivetranslate.com) は、このプロジェクトの積極的な貢献者向けに月間 Pro メンバーシップ交換コードをスポンサー提供しています。詳細は以下をご覧ください：[CONTRIBUTOR_REWARD.md](https://github.com/funstory-ai/BabelDOC/blob/main/docs/CONTRIBUTOR_REWARD.md)
-
-- [SiliconFlow](https://siliconflow.cn) は、大規模言語モデル（LLM）を活用して、このプロジェクトに無料の翻訳サービスを提供しています。
-
-- 1.x バージョン：[Byaidu/PDFMathTranslate](https://github.com/Byaidu/PDFMathTranslate)
-
-
-- バックエンド：[BabelDOC](https://github.com/funstory-ai/BabelDOC)
-
-- PDF ライブラリ：[PyMuPDF](https://github.com/pymupdf/PyMuPDF)
-
-- PDF 解析：[Pdfminer.six](https://github.com/pdfminer/pdfminer.six)
-
-- PDF プレビュー：[Gradio PDF](https://github.com/freddyaboulton/gradio-pdf)
-
-- レイアウト解析：[DocLayout-YOLO](https://github.com/opendatalab/DocLayout-YOLO)
-
-- PDF 標準：[PDF Explained](https://zxyle.github.io/PDF-Explained/), [PDF Cheat Sheets](https://pdfa.org/resource/pdf-cheat-sheets/)
-
-- 多言語フォント：[BabelDOC-Assets](https://github.com/funstory-ai/BabelDOC-Assets) を参照
-
-- [Asynchronize](https://github.com/multimeric/Asynchronize/tree/master?tab=readme-ov-file)
-
-- [Rich logging with multiprocessing](https://github.com/SebastianGrans/Rich-multiprocess-logging/tree/main)
-
-
-
-<h2 id="conduct">コードを提出する前に</h2>
-
-pdf2zh をより良くするために、貢献者の積極的な参加を歓迎します。コードを提出する準備が整う前に、[行動規範](./CODE_OF_CONDUCT.md) と [貢献ガイド](./community/Contribution-Guide.md) を参照してください。
-
-<h2 id="contrib">貢献者</h2>
-
-<!-- <a href="https://github.com/SocialYjj/GBabelDocUI/graphs/contributors">
-  <img src="https://opencollective.com/PDFMathTranslate/contributors.svg?width=890&button=false" />
-</a> -->
-
-<!-- ![Alt](https://repobeats.axiom.co/api/embed/45529651750579e099960950f757449a410477ad.svg "Repobeats analytics image") -->
-
-<h2 id="star_hist">Star History</h2>
-
-<a href="https://star-history.com/#SocialYjj/GBabelDocUI&Date">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=SocialYjj/GBabelDocUI&type=Date&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=SocialYjj/GBabelDocUI&type=Date" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=SocialYjj/GBabelDocUI&type=Date"/>
- </picture>
-</a>
-
-<div align="right"> 
-<h6><small>このページの一部のコンテンツは GPT によって翻訳されており、エラーが含まれている可能性があります。</small></h6>
+- [AGPL-3.0](https://github.com/SocialYjj/GBabelDocUI/blob/main/LICENSE)
+- [NOTICE](https://github.com/SocialYjj/GBabelDocUI/blob/main/NOTICE)
+- [UPSTREAM.md](https://github.com/SocialYjj/GBabelDocUI/blob/main/gbabeldocui/_vendor/pdf2zh_next/UPSTREAM.md)

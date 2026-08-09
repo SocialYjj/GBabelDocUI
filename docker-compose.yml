@@ -5,26 +5,52 @@ services:
       dockerfile: Dockerfile
     image: gbabeldocui:latest
     restart: unless-stopped
+    user: "10001:10001"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 512
+    cpus: "${GBABELDOCUI_CPU_LIMIT:-4.0}"
+    mem_limit: "${GBABELDOCUI_MEMORY_LIMIT:-6g}"
     ports:
       - "${GBABELDOCUI_BIND_ADDRESS:-127.0.0.1}:${GBABELDOCUI_PORT:-7860}:7860"
     environment:
       PORT: "7860"
       GBABELDOCUI_DATA_DIR: /app/data
       GBABELDOCUI_ALLOWED_ORIGINS: "${GBABELDOCUI_ALLOWED_ORIGINS:-}"
+      GBABELDOCUI_COOKIE_SECURE: "${GBABELDOCUI_COOKIE_SECURE:-false}"
+      GBABELDOCUI_SETUP_TOKEN: "${GBABELDOCUI_SETUP_TOKEN:-}"
       GBABELDOCUI_MAX_UPLOAD_BYTES: "${GBABELDOCUI_MAX_UPLOAD_BYTES:-52428800}"
       GBABELDOCUI_MAX_USER_STORAGE_BYTES: "${GBABELDOCUI_MAX_USER_STORAGE_BYTES:-2147483648}"
       GBABELDOCUI_MAX_ACTIVE_TASKS_PER_USER: "${GBABELDOCUI_MAX_ACTIVE_TASKS_PER_USER:-2}"
       GBABELDOCUI_MAX_ACTIVE_TASKS_GLOBAL: "${GBABELDOCUI_MAX_ACTIVE_TASKS_GLOBAL:-8}"
+      GBABELDOCUI_MAX_SESSIONS_PER_USER: "${GBABELDOCUI_MAX_SESSIONS_PER_USER:-10}"
       GBABELDOCUI_TRANSLATION_TIMEOUT_SECONDS: "${GBABELDOCUI_TRANSLATION_TIMEOUT_SECONDS:-7200}"
       GBABELDOCUI_MAX_USERS: "${GBABELDOCUI_MAX_USERS:-1000}"
       GBABELDOCUI_AUTH_ATTEMPT_LIMIT: "${GBABELDOCUI_AUTH_ATTEMPT_LIMIT:-5}"
       GBABELDOCUI_AUTH_ATTEMPT_WINDOW_SECONDS: "${GBABELDOCUI_AUTH_ATTEMPT_WINDOW_SECONDS:-300}"
       GBABELDOCUI_ORPHAN_UPLOAD_TTL_SECONDS: "${GBABELDOCUI_ORPHAN_UPLOAD_TTL_SECONDS:-604800}"
+      GBABELDOCUI_TASK_RETENTION_DAYS: "${GBABELDOCUI_TASK_RETENTION_DAYS:-90}"
+      GBABELDOCUI_RETENTION_GRACE_DAYS: "${GBABELDOCUI_RETENTION_GRACE_DAYS:-7}"
       GBABELDOCUI_ALLOW_PRIVATE_ENDPOINTS: "${GBABELDOCUI_ALLOW_PRIVATE_ENDPOINTS:-false}"
       TZ: "${TZ:-Asia/Shanghai}"
     volumes:
       - ./data:/app/data
-      - babeldoc-cache:/root/.cache/babeldoc
+      - babeldoc-cache:/cache
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=1g,mode=1777
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    stop_grace_period: 30s
     healthcheck:
       test:
         - CMD

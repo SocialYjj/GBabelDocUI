@@ -2,57 +2,49 @@
 
 ---
 
-> **Scope note:** This page is a reference for the official [`pdf2zh-next` uv installation](https://github.com/PDFMathTranslate-next/PDFMathTranslate-next). It does **not** document the GBabelDocUI Web UI. Use [`USAGE_webui.md`](./USAGE_webui.md) and the Docker instructions for the GBabelDocUI Web UI. Do not replace `pdf2zh_next` with `gbabeldocui`; their command-line arguments are not compatible.
+# Install GBabelDocUI with uv
 
-### Install PDFMathTranslate via uv
+This page installs GBabelDocUI itself. The project bundles the verified `pdf2zh-next 2.9.0` runtime subset it needs; do not install or invoke the upstream `pdf2zh_next` CLI as a substitute for `gbabeldocui`.
 
-#### What is uv? How to install it?
+## Requirements
 
-uv is an extremely fast Python package and project manager, written in Rust.
-<br>
-To install uv on your computer, please refer to [this article](https://docs.astral.sh/uv/getting-started/installation/).
+- Python 3.10 through 3.13
+- Git
+- [`uv`](https://docs.astral.sh/uv/getting-started/installation/)
 
----
+## Install and run
 
-#### Installation
+```bash
+git clone https://github.com/SocialYjj/GBabelDocUI.git
+cd GBabelDocUI
+uv sync --frozen
+```
 
-1. Python installed (3.10 <= version <= 3.12);
+For local HTTP:
 
-2. Use the following command to use our package:
+=== "Linux and macOS"
 
     ```bash
-    pip install uv
-    uv tool install --python 3.12 pdf2zh-next
+    export GBABELDOCUI_COOKIE_SECURE=false
+    uv run gbabeldocui
     ```
 
-After installation, you can start translation via the **command line** or **WebUI**.
+=== "Windows PowerShell"
 
-!!! Warning
+    ```powershell
+    $env:GBABELDOCUI_COOKIE_SECURE = "false"
+    uv run gbabeldocui
+    ```
 
-    If you see the error `command not found: pdf2zh_next` when running, please configure the environment variables as follows and try again:
+Open `http://127.0.0.1:7860/login.html`.
 
-    === "macOS and Linux"
+For a public deployment, keep `GBABELDOCUI_COOKIE_SECURE=true`, place the service behind an HTTPS reverse proxy, and run one process and one replica for each data directory.
 
-        Add the following to your ~/.zshrc:
+## Development environment
 
-        ```console
-        export PATH="$PATH:/Users/Username/.local/bin"
-        ```
-
-        Then restart your terminal
-
-    === "Windows"
-
-        Enter the following in PowerShell:
-
-        ```powershell
-        $env:Path = "C:\Users\Username\.local\bin;$env:Path"
-        ```
-
-        Then restart your terminal
-
-> [!NOTE]
-> If you encounter any issues during use WebUI, please refer to [Usage --> WebUI](./USAGE_webui.md).
-
-> [!NOTE]
-> If you encounter any issues during use command line, please refer to [Usage --> Command Line](./USAGE_commandline.md).
+```bash
+uv sync --dev --frozen
+uv run pytest -q
+uv run ruff check gbabeldocui tests
+uv run ruff format --check gbabeldocui tests
+```

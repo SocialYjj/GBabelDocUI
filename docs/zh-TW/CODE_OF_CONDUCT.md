@@ -79,5 +79,4 @@
 
 有關本行為準則的常見問題解答，請參閱 https://www.contributor-covenant.org/faq 的 常見問題。翻譯版本可在 https://www.contributor-covenant.org/translations 取得。
 
-<div align="right"> 
-<h6><small>Some content on this page has been translated by GPT and may contain errors.</small></h6>
+<p align="right"><small>本頁面部分內容由 GPT 翻譯，可能包含錯誤。</small></p>

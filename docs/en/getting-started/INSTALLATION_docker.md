@@ -2,53 +2,60 @@
 
 ---
 
-### Install GBabelDocUI via docker
+# Install GBabelDocUI with Docker Compose
 
-#### What is docker?
+Docker Engine with Compose v2 and Git are required. The repository Compose file is the supported container deployment because it includes the required persistent mounts and security settings.
 
-[Docker](https://docs.docker.com/get-started/docker-overview/) is an open platform for developing, shipping, and running applications. Docker enables you to separate your applications from your infrastructure so you can deliver software quickly. With Docker, you can manage your infrastructure in the same ways you manage your applications. By taking advantage of Docker's methodologies for shipping, testing, and deploying code, you can significantly reduce the delay between writing code and running it in production.
+## Start locally
 
-#### Installation
+```bash
+git clone https://github.com/SocialYjj/GBabelDocUI.git
+cd GBabelDocUI
+```
 
-<h4>1. Start the application with the repository Compose file:</h4>
+On Linux, prepare the bind-mounted data directory for the container user:
+
+```bash
+mkdir -p data
+sudo chown -R 10001:10001 data
+```
+
+Build and start the service:
 
 ```bash
 docker compose up -d --build
 ```
 
-> [!NOTE]
->
-> The Compose file persists `./data` for accounts, settings, uploads and outputs. The default port binding is `127.0.0.1:7860`; put the service behind an HTTPS reverse proxy before exposing it publicly.
->
-> After the first successful GitHub Actions publish, you can use the amd64 GHCR image instead:
->
-> ```bash
-> docker pull ghcr.io/socialyjj/gbabeldocui:latest
-> docker run -d --name gbabeldocui --restart unless-stopped -p 127.0.0.1:7860:7860 -v "$(pwd)/data:/app/data" ghcr.io/socialyjj/gbabeldocui:latest
-> ```
-<h4>2. Enter this URL in your default browser to open the WebUI page:</h4>
+Open `http://127.0.0.1:7860/login.html`. The local Compose defaults deliberately set `GBABELDOCUI_COOKIE_SECURE=false` because the service is reached over loopback HTTP.
 
-```
-http://localhost:7860/
+## Publish through HTTPS
+
+Before exposing the service, configure an HTTPS reverse proxy and start Compose with at least:
+
+```bash
+export GBABELDOCUI_COOKIE_SECURE=true
+export GBABELDOCUI_SETUP_TOKEN='replace-with-a-long-random-one-time-value'
+docker compose up -d --build
 ```
 
-> [!NOTE]
-> If you encounter any issues during use WebUI, please refer to [Usage --> WebUI](./USAGE_webui.md).
+Use the setup token only when the initial administrator must be created remotely. Remove the variable and restart the service immediately after initialization.
 
-> [!NOTE]
-> If you encounter any issues during use command line, please refer to [Usage --> Command Line](./USAGE_commandline.md).
-<!-- 
-#### For docker deployment on cloud service:
+Do not scale the service or add multiple Uvicorn workers. One application process owns one `data/` directory, and a second instance using the same directory intentionally fails fast.
 
-<div>
-<a href="https://www.heroku.com/deploy?template=https://github.com/GBabelDocUI/GBabelDocUI-next">
-  <img src="https://www.herokucdn.com/deploy/button.svg" alt="Deploy" height="26"></a>
-<a href="https://render.com/deploy">
-  <img src="https://render.com/images/deploy-to-render-button.svg" alt="Deploy to Koyeb" height="26"></a>
-<a href="https://zeabur.com/templates/5FQIGX?referralCode=reycn">
-  <img src="https://zeabur.com/button.svg" alt="Deploy on Zeabur" height="26"></a>
-<a href="https://app.koyeb.com/deploy?type=git&builder=buildpack&repository=github.com/GBabelDocUI/GBabelDocUI-next&branch=main&name=pdf-math-translate">
-  <img src="https://www.koyeb.com/static/images/deploy/button.svg" alt="Deploy to Koyeb" height="26"></a>
-</div>
+## Persistent data
 
--->
+- `./data:/app/data` stores accounts, settings, task history, uploads, and outputs.
+- The `babeldoc-cache` named volume stores model and font caches under `/cache`.
+- The container root filesystem is read-only; `/tmp` is a bounded temporary filesystem.
+
+Do not commit, package, or publish `./data`.
+
+## Check and stop
+
+```bash
+docker compose ps
+docker compose logs --tail 200 gbabeldocui
+docker compose down
+```
+
+`docker compose down` does not remove `./data` or the named cache volume unless they are deleted explicitly.

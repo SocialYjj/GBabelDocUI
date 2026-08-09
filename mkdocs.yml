@@ -1,7 +1,7 @@
 # Project information
 site_name: GBabelDocUI
 site_author: SocialYjj
-site_description: Multi-user PDF translation Web UI based on pdf2zh-next and BabelDOC.
+site_description: Multi-user PDF translation Web UI based on BabelDOC.
 
 # Repository
 repo_name: SocialYjj/GBabelDocUI
@@ -9,7 +9,9 @@ repo_url: https://github.com/SocialYjj/GBabelDocUI
 edit_uri: edit/main/docs/
 
 # Configuration
-use_directory_urls: false
+use_directory_urls: true
+exclude_docs: |
+  项目全量修复计划.md
 theme:
   name: material
   features:
@@ -59,9 +61,7 @@ theme:
       toggle:
         icon: material/brightness-4
         name: Switch to system preference
-  font:
-    text: Roboto
-    code: Red Hat Mono
+  font: false
   favicon: images/logo_photo.svg
   logo: images/logo_photo.svg
 
@@ -71,7 +71,9 @@ plugins:
       separator: '[\s\u200b\-_,:!=\[\]()"`/]+|\.(?!\d)|&[lg]t;|(?!\b)(?=[A-Z][a-z])'
   - minify:
       minify_html: true
-  - git-authors
+  - git-authors:
+      exclude:
+        - 项目全量修复计划.md
 
   # i18n language support en, zh, zh-TW, ja, ko, fr, de, es, ru, it, pt
   - i18n:
@@ -348,8 +350,8 @@ plugins:
             palette:
               - media: "(prefers-color-scheme)"
               - media: "(prefers-color-scheme: light)"
-                scheme: cyan
-                primary: 
+                scheme: default
+                primary: cyan
               - media: "(prefers-color-scheme: dark)"
                 scheme: slate
                 primary: indigo
@@ -370,6 +372,8 @@ plugins:
 
   - git-revision-date-localized:
       enable_creation_date: true
+      exclude:
+        - 项目全量修复计划.md
 
 # Additional configuration
 extra:
@@ -384,6 +388,11 @@ extra:
 markdown_extensions:
 
   # Python Markdown
+  - toc:
+      permalink: true
+      slugify: !!python/object/apply:pymdownx.slugs.slugify
+        kwds:
+          case: lower
   - github-callouts
   - markdown_include.include
   - def_list
@@ -417,23 +426,20 @@ nav:
   - Getting Started: 
     - Getting Start: getting-started/getting-started.md
     - Installation:
-      - Windows EXE: getting-started/INSTALLATION_winexe.md  
       - Docker: getting-started/INSTALLATION_docker.md       
       - UV: getting-started/INSTALLATION_uv.md               
     - Usage:
-      - Command Line: getting-started/USAGE_commandline.md
       - WebUI: getting-started/USAGE_webui.md
-      - guaguastandup/zotero-pdf2zh: https://github.com/guaguastandup/zotero-pdf2zh
   - Advanced: 
-    - Advanced: advanced/advanced.md
+    - Web UI Settings: advanced/advanced.md
     - Language Code: advanced/Language-Codes.md
     - Documentation of Translation Services: advanced/Documentation-of-Translation-Services.md
-    - Translation Services:
-      - Aliyun: advanced/TranslationServices/Aliyun.md
-      - SiliconFlow: advanced/TranslationServices/SiliconFlow.md
   - Supported Languages: supported_languages.md
-  - API: advanced/API/python.md
   - FAQ: FAQ.md
+  - Upstream References:
+    - Windows EXE: getting-started/INSTALLATION_winexe.md
+    - Command Line: getting-started/USAGE_commandline.md
+    - Python API: advanced/API/python.md
   - Community:
     - Contribution-Guide: community/Contribution-Guide.md
     - For Translators: community/Translate-Contribution-Guide.md
