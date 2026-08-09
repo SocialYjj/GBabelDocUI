@@ -1,6 +1,6 @@
 [project]
 name = "gbabeldocui"
-version = "1.2.2"
+version = "1.2.3"
 description = "Multi-user Web UI for the BabelDOC PDF translation pipeline"
 authors = [
     { name = "SocialYjj" },

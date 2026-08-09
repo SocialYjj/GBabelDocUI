@@ -527,15 +527,6 @@ function bindPageEvents() {
         fileInput.value = '';
         fileInput.click();
     };
-    const uploadNavigationLink = element('upload-nav-link');
-    if (uploadNavigationLink) {
-        uploadNavigationLink.addEventListener('click', clickEvent => {
-            if (window.location.pathname.endsWith('upload.html')) {
-                clickEvent.preventDefault();
-                openFilePicker();
-            }
-        });
-    }
     uploadZone.addEventListener('click', clickEvent => {
         if (!clickEvent.target.closest('#select-file-btn')) {
             openFilePicker();
