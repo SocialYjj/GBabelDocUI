@@ -754,6 +754,14 @@ input[type="radio"] {
   grid-template-columns: repeat(2, 1fr);
 }
 
+.upload-layout {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.upload-layout > section {
+  min-width: 0;
+}
+
 .grid-3 {
   grid-template-columns: repeat(3, 1fr);
 }
