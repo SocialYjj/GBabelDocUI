@@ -51,6 +51,33 @@ const translations = {
         'upload.history.delete.confirm': 'Are you sure you want to delete this translation? This will also delete the original and translated files.',
         'upload.history.delete.success': 'Translation deleted successfully',
         'upload.history.delete.failed': 'Failed to delete: ',
+        'upload.select': 'Choose PDF file',
+        'upload.select.help': 'PDF files only',
+        'upload.change': 'Click to choose another file',
+        'upload.change.button': 'Choose another file',
+        'upload.cancel': 'Cancel upload',
+        'upload.history.previous': 'Previous',
+        'upload.history.next': 'Next',
+        'upload.history.status.queued': 'Queued',
+        'upload.history.status.processing': 'Processing',
+        'upload.history.status.completed': 'Completed',
+        'upload.history.status.failed': 'Failed',
+        'upload.history.status.cancelled': 'Cancelled',
+        'upload.filename.untitled': 'Untitled',
+        'upload.progress.uploading': 'Uploading...',
+        'upload.progress.starting': 'Starting translation...',
+        'upload.progress.processing': 'Processing...',
+        'upload.error.invalid_file': 'Please choose a PDF file',
+        'upload.error.missing_task': 'The translation task ID is missing',
+        'upload.error.failed': 'Translation failed',
+        'upload.error.status': 'Unable to get translation status',
+        'upload.error.history': 'Unable to load translation history',
+        'upload.error.start': 'Failed to start translation',
+        'upload.error.page_range.invalid': 'Invalid page range',
+        'upload.error.page_range.order': 'The start page cannot be greater than the end page',
+        'upload.error.page_range.out_of_bounds': 'A page number cannot exceed the document total of {count}',
+        'upload.error.page_range.overlap': 'Page ranges cannot overlap or repeat',
+        'upload.error.page_range.required': 'Please enter a custom page range',
 
         // Settings Page
         'settings.title': 'Settings',
@@ -81,6 +108,9 @@ const translations = {
         'settings.basic.service': 'Translation Service',
         'settings.basic.service.label': 'Service',
         'settings.basic.apikey': 'API Key',
+        'settings.basic.apikey.status.keep': 'Leave blank to keep the saved key.',
+        'settings.basic.apikey.status.configured': 'A key is configured. Leave this field blank to keep it.',
+        'settings.basic.apikey.status.none': 'No key is configured.',
         'settings.basic.apikey.placeholder': 'Enter your API key',
         'settings.basic.model': 'Model',
         'settings.basic.model.placeholder': 'e.g., gpt-4',
@@ -266,6 +296,33 @@ const translations = {
         'settings.config.import.success': 'Configuration imported successfully',
         'settings.config.import.error': 'Failed to import configuration',
         'settings.config.import.invalid': 'Invalid configuration file',
+        'settings.message.saved': 'Settings saved successfully',
+        'settings.message.importing': 'Importing settings...',
+        'settings.message.imported': 'Imported settings:',
+        'settings.message.reset.confirm': 'Reset all settings to defaults?',
+        'settings.message.reset': 'Settings reset',
+        'settings.message.registration.saved': 'Registration setting saved',
+        'settings.message.user.added': 'User added successfully',
+        'settings.message.user.enter': 'Enter a username and password',
+        'settings.message.user.delete.confirm': 'Delete user "{username}" and all owned files?',
+        'settings.message.user.deleted': 'User deleted successfully',
+        'settings.message.password.required': 'Fill in all password fields',
+        'settings.message.password.mismatch': 'New passwords do not match',
+        'settings.message.provider.unsupported': 'The saved provider "{provider}" remains active until Basic Settings are saved. It is not editable on this page.',
+        'settings.message.imported_count': 'Imported {count} settings',
+        'settings.message.loading': 'Settings have not finished loading',
+        'settings.users.admin': 'Admin',
+        'settings.users.created': 'Created: {date}',
+
+        // Settings Validation
+        'settings.validation.range': '{field} must be between {minimum} and {maximum}',
+        'settings.validation.integer': '{field} must be an integer',
+        'settings.validation.custom_pages.required': 'Please enter a custom page range',
+        'settings.validation.custom_pages.too_long': 'The custom page range is too long',
+        'settings.validation.custom_pages.invalid': 'The custom page range contains an invalid segment',
+        'settings.validation.custom_pages.order': 'The start page cannot be greater than the end page',
+        'settings.validation.custom_pages.overlap': 'Page ranges cannot overlap or repeat',
+        'settings.validation.max_pages.minimum': 'Maximum pages per part must be 0 or at least 50',
 
         // Registration Page
         'register.title': 'Create Account',
@@ -297,6 +354,22 @@ const translations = {
         'common.delete': 'Delete',
         'common.reset': 'Reset to Defaults',
         'common.saveall': 'Save All Settings',
+        'common.source': 'Source code',
+        'common.license': 'License',
+        'common.primary_navigation': 'Primary navigation',
+        'common.settings_sections': 'Settings sections',
+        'common.language': 'Language',
+        'common.error.unknown': 'An error occurred',
+        'language.auto': 'Auto Detect',
+        'language.english': 'English',
+        'language.chinese': 'Chinese',
+        'language.simplified_chinese': 'Simplified Chinese',
+        'language.japanese': 'Japanese',
+        'language.korean': 'Korean',
+        'language.french': 'French',
+        'language.german': 'German',
+        'language.spanish': 'Spanish',
+        'language.russian': 'Russian',
     },
 
     zh: {
@@ -346,6 +419,33 @@ const translations = {
         'upload.history.delete.confirm': '确定要删除这个翻译记录吗？这将同时删除原文件和翻译后的文件。',
         'upload.history.delete.success': '删除成功',
         'upload.history.delete.failed': '删除失败：',
+        'upload.select': '选择 PDF 文件',
+        'upload.select.help': '仅支持 PDF 文件',
+        'upload.change': '点击选择其他文件',
+        'upload.change.button': '选择其他文件',
+        'upload.cancel': '取消上传',
+        'upload.history.previous': '上一页',
+        'upload.history.next': '下一页',
+        'upload.history.status.queued': '排队中',
+        'upload.history.status.processing': '处理中',
+        'upload.history.status.completed': '已完成',
+        'upload.history.status.failed': '失败',
+        'upload.history.status.cancelled': '已取消',
+        'upload.filename.untitled': '未命名文件',
+        'upload.progress.uploading': '上传中...',
+        'upload.progress.starting': '正在启动翻译...',
+        'upload.progress.processing': '处理中...',
+        'upload.error.invalid_file': '请选择 PDF 文件',
+        'upload.error.missing_task': '缺少翻译任务标识',
+        'upload.error.failed': '翻译失败',
+        'upload.error.status': '无法获取翻译状态',
+        'upload.error.history': '无法加载翻译历史',
+        'upload.error.start': '翻译启动失败',
+        'upload.error.page_range.invalid': '页码范围格式无效',
+        'upload.error.page_range.order': '页码范围起始值不能大于结束值',
+        'upload.error.page_range.out_of_bounds': '页码不能超过文档总页数 {count}',
+        'upload.error.page_range.overlap': '页码范围不能重复或重叠',
+        'upload.error.page_range.required': '请输入自定义页码范围',
 
         // Settings Page
         'settings.title': '设置',
@@ -376,6 +476,9 @@ const translations = {
         'settings.basic.service': '翻译服务',
         'settings.basic.service.label': '服务',
         'settings.basic.apikey': 'API密钥',
+        'settings.basic.apikey.status.keep': '留空以保留已保存的密钥。',
+        'settings.basic.apikey.status.configured': '已配置密钥。留空可保留现有密钥。',
+        'settings.basic.apikey.status.none': '尚未配置密钥。',
         'settings.basic.apikey.placeholder': '输入您的API密钥',
         'settings.basic.model': '模型',
         'settings.basic.model.placeholder': '例如：gpt-4',
@@ -561,6 +664,33 @@ const translations = {
         'settings.config.import.success': '配置导入成功',
         'settings.config.import.error': '配置导入失败',
         'settings.config.import.invalid': '无效的配置文件',
+        'settings.message.saved': '设置保存成功',
+        'settings.message.importing': '正在导入设置...',
+        'settings.message.imported': '已导入设置项：',
+        'settings.message.reset.confirm': '确定要将所有设置恢复为默认值吗？',
+        'settings.message.reset': '设置已重置',
+        'settings.message.registration.saved': '注册设置已保存',
+        'settings.message.user.added': '用户添加成功',
+        'settings.message.user.enter': '请输入用户名和密码',
+        'settings.message.user.delete.confirm': '确定要删除用户“{username}”及其所有文件吗？',
+        'settings.message.user.deleted': '用户删除成功',
+        'settings.message.password.required': '请填写所有密码字段',
+        'settings.message.password.mismatch': '两次输入的新密码不一致',
+        'settings.message.provider.unsupported': '已保存的服务“{provider}”将在保存基础设置前继续使用，当前页面不能编辑它。',
+        'settings.message.imported_count': '已导入 {count} 项设置',
+        'settings.message.loading': '设置尚未加载完成',
+        'settings.users.admin': '管理员',
+        'settings.users.created': '创建时间：{date}',
+
+        // Settings Validation
+        'settings.validation.range': '{field}必须在{minimum}到{maximum}之间',
+        'settings.validation.integer': '{field}必须是整数',
+        'settings.validation.custom_pages.required': '请输入自定义页码范围',
+        'settings.validation.custom_pages.too_long': '自定义页码范围过长',
+        'settings.validation.custom_pages.invalid': '自定义页码范围包含无效片段',
+        'settings.validation.custom_pages.order': '页码范围起始值不能大于结束值',
+        'settings.validation.custom_pages.overlap': '页码范围不能重复或重叠',
+        'settings.validation.max_pages.minimum': '每部分最大页数必须为0或至少为50',
 
         // Registration Page
         'register.title': '创建账户',
@@ -592,6 +722,22 @@ const translations = {
         'common.delete': '删除',
         'common.reset': '重置为默认',
         'common.saveall': '保存所有设置',
+        'common.source': '源代码',
+        'common.license': '许可证',
+        'common.primary_navigation': '主导航',
+        'common.settings_sections': '设置分区',
+        'common.language': '语言',
+        'common.error.unknown': '发生错误',
+        'language.auto': '自动检测',
+        'language.english': '英语',
+        'language.chinese': '中文',
+        'language.simplified_chinese': '简体中文',
+        'language.japanese': '日语',
+        'language.korean': '韩语',
+        'language.french': '法语',
+        'language.german': '德语',
+        'language.spanish': '西班牙语',
+        'language.russian': '俄语',
     }
 };
 
@@ -604,6 +750,13 @@ let currentLang = savedLanguage && translations[savedLanguage] ? savedLanguage :
  */
 function t(key) {
     return (translations[currentLang] && translations[currentLang][key]) || key;
+}
+
+function translateMessage(key, replacements = {}) {
+    return Object.entries(replacements).reduce(
+        (message, [name, value]) => message.replaceAll(`{${name}}`, String(value)),
+        t(key),
+    );
 }
 
 /**
@@ -635,11 +788,29 @@ function setLanguage(lang) {
         }
     });
 
+    document.querySelectorAll('[data-i18n-title]').forEach(el => {
+        const key = el.getAttribute('data-i18n-title');
+        if (translations[currentLang] && translations[currentLang][key]) {
+            el.title = translations[currentLang][key];
+        }
+    });
+
+    document.querySelectorAll('[data-i18n-aria-label]').forEach(el => {
+        const key = el.getAttribute('data-i18n-aria-label');
+        if (translations[currentLang] && translations[currentLang][key]) {
+            el.setAttribute('aria-label', translations[currentLang][key]);
+        }
+    });
+
     // Update language selector if exists
     const langSelector = document.getElementById('lang-selector');
     if (langSelector) {
         langSelector.value = lang;
     }
+
+    window.dispatchEvent(new CustomEvent('i18n:language-changed', {
+        detail: { lang },
+    }));
 }
 
 /**
@@ -656,7 +827,8 @@ function initI18n() {
         const selector = document.createElement('select');
         selector.id = 'lang-selector';
         selector.className = 'form-select language-selector';
-        selector.setAttribute('aria-label', 'Language');
+        selector.setAttribute('data-i18n-aria-label', 'common.language');
+        selector.setAttribute('aria-label', t('common.language'));
         selector.append(
             new Option('English', 'en'),
             new Option('中文', 'zh'),
@@ -681,6 +853,7 @@ if (document.readyState === 'loading') {
 // Global i18n object for easy access
 const i18n = {
     t: t,
+    format: translateMessage,
     setLanguage: setLanguage,
     getCurrentLang: () => currentLang
 };

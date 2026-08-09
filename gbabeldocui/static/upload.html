@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Upload - GBabelDocUI</title>
+    <title data-i18n="upload.title">Upload PDF</title>
     <link rel="stylesheet" href="/static/css/style.css">
     <script src="/static/js/i18n.js"></script>
 </head>
@@ -13,10 +13,10 @@
     <div class="page-wrapper">
         <header class="header">
             <div class="container">
-                <nav class="nav" aria-label="Primary navigation">
+                <nav class="nav" aria-label="Primary navigation" data-i18n-aria-label="common.primary_navigation">
                     <div class="logo">GBabelDocUI</div>
                     <ul class="nav-links">
-                        <li><a href="/static/upload.html" class="nav-link active" data-i18n="nav.upload">Upload</a></li>
+                        <li><a href="/static/upload.html" class="nav-link active" id="upload-nav-link" data-i18n="nav.upload">Upload</a></li>
                         <li><a href="/static/settings.html" class="nav-link" data-i18n="nav.settings">Settings</a></li>
                         <li><span class="nav-link" id="user-info"></span></li>
                         <li><a href="/login.html" class="nav-link" id="logout-btn" data-i18n="nav.logout">Logout</a></li>
@@ -35,13 +35,14 @@
                                 <p class="card-subtitle" data-i18n="upload.subtitle">Upload a PDF file to translate</p>
                             </div>
                             <div class="card-body">
-                                <div class="upload-zone" id="upload-zone" role="button" tabindex="0"
-                                    aria-controls="file-input" aria-describedby="upload-hint">
+                                <div class="upload-zone" id="upload-zone" aria-describedby="upload-hint">
                                     <div class="upload-icon" aria-hidden="true">
                                         <span class="upload-pdf-icon">PDF</span>
                                     </div>
                                     <p class="upload-text" data-i18n="upload.drag">Drag and drop your PDF here</p>
-                                    <p class="upload-hint" id="upload-hint" data-i18n="upload.browse">or click to browse</p>
+                                    <button type="button" class="btn btn-secondary upload-select-button" id="select-file-btn"
+                                        aria-controls="file-input" data-i18n="upload.select">Choose PDF file</button>
+                                    <p class="upload-hint" id="upload-hint" data-i18n="upload.select.help">PDF files only</p>
                                     <input type="file" id="file-input" accept="application/pdf,.pdf" hidden>
                                 </div>
 
@@ -56,15 +57,17 @@
                                 </div>
 
                                 <div class="form-group" id="custom-pages-group" hidden>
-                                    <label class="form-label" for="custom-pages-input">Custom Pages</label>
+                                    <label class="form-label" for="custom-pages-input" data-i18n="upload.pages.custom.label">Custom Pages</label>
                                     <input type="text" class="form-input" id="custom-pages-input"
-                                        placeholder="e.g., 1-5,10,15-20" aria-describedby="custom-pages-help">
-                                    <small class="form-help" id="custom-pages-help">Enter page numbers or ranges separated by commas</small>
+                                        placeholder="e.g., 1-5,10,15-20" data-i18n-placeholder="upload.pages.custom.placeholder"
+                                        aria-describedby="custom-pages-help">
+                                    <small class="form-help" id="custom-pages-help" data-i18n="upload.pages.custom.help">Enter page numbers or ranges separated by commas</small>
                                 </div>
 
                                 <button class="btn btn-primary btn-block btn-lg" id="translate-btn" disabled
                                     data-i18n="upload.btn.translate">Translate</button>
-                                <button class="btn btn-secondary btn-block mt-sm" id="cancel-upload-btn" hidden>Cancel upload</button>
+                                <button class="btn btn-secondary btn-block mt-sm" id="cancel-upload-btn" hidden
+                                    data-i18n="upload.cancel">Cancel upload</button>
                             </div>
                         </div>
                     </section>
@@ -80,9 +83,9 @@
                                     <p class="text-center text-muted" data-i18n="upload.history.empty">No translations yet</p>
                                 </div>
                                 <div class="history-pagination mt-md" id="history-pagination" hidden>
-                                    <button type="button" class="btn btn-secondary btn-sm" id="history-previous-btn">Previous</button>
+                                    <button type="button" class="btn btn-secondary btn-sm" id="history-previous-btn" data-i18n="upload.history.previous">Previous</button>
                                     <span id="history-page-status" aria-live="polite"></span>
-                                    <button type="button" class="btn btn-secondary btn-sm" id="history-next-btn">Next</button>
+                                    <button type="button" class="btn btn-secondary btn-sm" id="history-next-btn" data-i18n="upload.history.next">Next</button>
                                 </div>
                             </div>
                         </div>
@@ -96,7 +99,7 @@
                                     aria-valuenow="0" id="progress-bar">
                                     <div class="progress-fill" id="progress-fill"></div>
                                 </div>
-                                <p id="progress-text" class="text-center text-muted" aria-live="polite">Initializing...</p>
+                                <p id="progress-text" class="text-center text-muted" aria-live="polite" data-i18n="upload.progress.init">Initializing...</p>
                                 <p id="progress-detail" class="text-center text-muted"></p>
                             </div>
                         </div>
@@ -122,8 +125,8 @@
         </main>
 
         <footer class="app-footer">
-            <a href="https://github.com/SocialYjj/GBabelDocUI" rel="noopener noreferrer">Source code</a>
-            <a href="https://github.com/SocialYjj/GBabelDocUI/blob/main/LICENSE" rel="noopener noreferrer">AGPL-3.0</a>
+            <a href="https://github.com/SocialYjj/GBabelDocUI" rel="noopener noreferrer" data-i18n="common.source">Source code</a>
+            <a href="https://github.com/SocialYjj/GBabelDocUI/blob/main/LICENSE" rel="noopener noreferrer" data-i18n="common.license">License</a>
             <span id="app-version-footer">GBabelDocUI</span>
         </footer>
     </div>
@@ -131,7 +134,7 @@
     <div class="loading-overlay" id="loading-overlay" hidden>
         <div class="loading-content">
             <div class="spinner" aria-hidden="true"></div>
-            <p class="loading-text">Loading...</p>
+            <p class="loading-text" data-i18n="common.loading">Loading...</p>
         </div>
     </div>
 

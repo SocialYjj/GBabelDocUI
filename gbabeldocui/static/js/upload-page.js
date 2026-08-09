@@ -7,6 +7,7 @@ let translationStartInProgress = false;
 let pageSelectionReady = false;
 let historyOffset = 0;
 let historyTotal = 0;
+let loadedHistoryItems = [];
 let pollingGeneration = 0;
 let pollingController = null;
 let pollingDelayIdentifier = null;
@@ -53,7 +54,7 @@ function waitForNextPoll(generation) {
 
 function normalizeCustomPages(pageExpression, pageCount = null) {
     if (typeof pageExpression !== 'string' || pageExpression.length > 200) {
-        throw new Error('页码范围格式无效');
+        throw new Error(i18n.t('upload.error.page_range.invalid'));
     }
     const selectedPages = new Set();
     const normalizedSegments = [];
@@ -61,19 +62,21 @@ function normalizeCustomPages(pageExpression, pageCount = null) {
         const segment = rawSegment.trim();
         const rangeMatch = segment.match(/^([1-9]\d*)(?:\s*-\s*([1-9]\d*))?$/);
         if (!rangeMatch) {
-            throw new Error('页码范围格式无效');
+            throw new Error(i18n.t('upload.error.page_range.invalid'));
         }
         const firstPage = Number(rangeMatch[1]);
         const lastPage = Number(rangeMatch[2] || rangeMatch[1]);
         if (firstPage > lastPage) {
-            throw new Error('页码范围起始值不能大于结束值');
+            throw new Error(i18n.t('upload.error.page_range.order'));
         }
         if (pageCount !== null && lastPage > pageCount) {
-            throw new Error(`页码不能超过文档总页数 ${pageCount}`);
+            throw new Error(i18n.format('upload.error.page_range.out_of_bounds', {
+                count: pageCount,
+            }));
         }
         for (let pageNumber = firstPage; pageNumber <= lastPage; pageNumber += 1) {
             if (selectedPages.has(pageNumber)) {
-                throw new Error('页码范围不能重复或重叠');
+                throw new Error(i18n.t('upload.error.page_range.overlap'));
             }
             selectedPages.add(pageNumber);
         }
@@ -82,7 +85,7 @@ function normalizeCustomPages(pageExpression, pageCount = null) {
             : `${firstPage}-${lastPage}`);
     }
     if (!normalizedSegments.length) {
-        throw new Error('请输入自定义页码范围');
+        throw new Error(i18n.t('upload.error.page_range.required'));
     }
     return normalizedSegments.join(',');
 }
@@ -113,13 +116,14 @@ function isPdfFile(candidateFile) {
 
 function selectPdfFile(candidateFile) {
     if (!isPdfFile(candidateFile)) {
-        showAlert('请选择 PDF 文件', 'error');
+        showAlert(i18n.t('upload.error.invalid_file'), 'error');
         return;
     }
     selectedPdfFile = candidateFile;
     element('translate-btn').disabled = !pageSelectionReady;
     element('upload-zone').querySelector('.upload-text').textContent = candidateFile.name;
-    element('upload-hint').textContent = `${formatFileSize(candidateFile.size)} - Click to change`;
+    element('select-file-btn').textContent = i18n.t('upload.change.button');
+    element('upload-hint').textContent = `${formatFileSize(candidateFile.size)} - ${i18n.t('upload.change')}`;
 }
 
 function resetTranslationForm() {
@@ -139,12 +143,13 @@ function resetTranslationForm() {
     setHidden('download-mono-btn', true);
     setHidden('download-dual-btn', true);
     element('upload-zone').querySelector('.upload-text').textContent = i18n.t('upload.drag');
-    element('upload-hint').textContent = i18n.t('upload.browse');
+    element('select-file-btn').textContent = i18n.t('upload.select');
+    element('upload-hint').textContent = i18n.t('upload.select.help');
 }
 
 function startDownload(fileType, taskId) {
     if (!taskId) {
-        showAlert('缺少翻译任务标识', 'error');
+        showAlert(i18n.t('upload.error.missing_task'), 'error');
         return;
     }
     const downloadLink = document.createElement('a');
@@ -168,7 +173,7 @@ function showTranslationOutput(taskStatus, taskId) {
 }
 
 function showActiveTaskProgress() {
-    setProgress(0, 'Processing...');
+    setProgress(0, i18n.t('upload.progress.processing'));
     setHidden('progress-card', false);
     setHidden('result-card', true);
 }
@@ -179,7 +184,7 @@ function updateCurrentTaskStatus(taskStatus, taskId, pendingTaskIds) {
     }
     setProgress(
         taskStatus.progress,
-        taskStatus.message || taskStatus.status || 'Processing...',
+        taskStatus.message || taskStatus.status || i18n.t('upload.progress.processing'),
         taskStatus.detail || '',
     );
     if (!TERMINAL_TASK_STATUSES.has(taskStatus.status)) {
@@ -188,7 +193,10 @@ function updateCurrentTaskStatus(taskStatus, taskId, pendingTaskIds) {
     if (taskStatus.status === 'completed') {
         showTranslationOutput(taskStatus, taskId);
     } else if (taskStatus.status === 'failed') {
-        showAlert(taskStatus.error || taskStatus.message || '翻译失败', 'error');
+        showAlert(
+            taskStatus.error || taskStatus.message || i18n.t('upload.error.failed'),
+            'error',
+        );
         setHidden('progress-card', true);
     } else {
         setHidden('progress-card', true);
@@ -234,7 +242,7 @@ async function startStatusPolling(taskIds) {
                 const failureCount = (failureCounts.get(taskId) || 0) + 1;
                 failureCounts.set(taskId, failureCount);
                 if (failureCount >= 5) {
-                    showAlert(statusError.message || '无法获取翻译状态', 'error');
+                    showAlert(statusError.message || i18n.t('upload.error.status'), 'error');
                     failureCounts.set(taskId, 0);
                 }
             }
@@ -270,8 +278,22 @@ function createHistoryAction(buttonClass, label, buttonText, action) {
 }
 
 function historyDisplayName(historyItem) {
-    const displayName = historyItem.original_filename || historyItem.filename || 'Untitled';
-    return displayName && displayName !== '_' ? displayName : 'Untitled';
+    const rawDisplayName = String(
+        historyItem.original_filename || historyItem.filename || '',
+    ).trim();
+    const displayName = rawDisplayName.replace(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_/i,
+        '',
+    ).replace(/_+/g, ' ').trim();
+    return displayName && displayName !== '_'
+        ? displayName
+        : i18n.t('upload.filename.untitled');
+}
+
+function historyStatusLabel(taskStatus) {
+    const translationKey = `upload.history.status.${taskStatus}`;
+    const translatedStatus = i18n.t(translationKey);
+    return translatedStatus === translationKey ? taskStatus : translatedStatus;
 }
 
 function renderHistoryItem(historyItem) {
@@ -288,11 +310,13 @@ function renderHistoryItem(historyItem) {
     const filenameContainer = document.createElement('div');
     filenameContainer.className = 'history-filename';
     filenameContainer.textContent = historyDisplayName(historyItem);
-    filenameContainer.title = historyItem.filename || filenameContainer.textContent;
+    filenameContainer.title = historyItem.original_filename
+        || historyItem.filename
+        || filenameContainer.textContent;
 
     const statusText = document.createElement('div');
     statusText.className = 'history-status';
-    statusText.textContent = historyItem.status;
+    statusText.textContent = historyStatusLabel(historyItem.status);
 
     const historyActions = document.createElement('div');
     historyActions.className = 'history-actions';
@@ -322,10 +346,34 @@ function renderHistoryItem(historyItem) {
     const timestamp = document.createElement('time');
     timestamp.className = 'history-timestamp';
     timestamp.textContent = formatDate(historyItem.created_at);
+    if (historyItem.created_at) {
+        timestamp.dateTime = historyItem.created_at;
+    }
 
-    historyContent.append(filenameContainer, statusText, historyActions, timestamp);
+    const historyDetails = document.createElement('div');
+    historyDetails.className = 'history-details';
+    const historyMeta = document.createElement('div');
+    historyMeta.className = 'history-meta';
+    historyMeta.append(statusText, timestamp);
+    historyDetails.append(filenameContainer, historyMeta);
+    historyContent.append(historyDetails, historyActions);
     historyRow.append(statusBar, historyContent);
     return historyRow;
+}
+
+function renderHistoryList() {
+    const historyList = element('history-list');
+    historyList.replaceChildren();
+    if (!loadedHistoryItems.length) {
+        const emptyMessage = document.createElement('p');
+        emptyMessage.className = 'history-empty text-center text-muted';
+        emptyMessage.textContent = i18n.t('upload.history.empty');
+        historyList.appendChild(emptyMessage);
+        return;
+    }
+    loadedHistoryItems.forEach(historyItem => {
+        historyList.appendChild(renderHistoryItem(historyItem));
+    });
 }
 
 function updateHistoryPagination() {
@@ -355,25 +403,14 @@ async function loadHistory(offset = historyOffset, restartPolling = true) {
         }
         historyOffset = offset;
         historyTotal = Number(historyResponse.total) || 0;
-        const historyItems = Array.isArray(historyResponse.history)
+        loadedHistoryItems = Array.isArray(historyResponse.history)
             ? historyResponse.history
             : [];
-        const historyList = element('history-list');
-        historyList.replaceChildren();
-        if (!historyItems.length) {
-            const emptyMessage = document.createElement('p');
-            emptyMessage.className = 'text-center text-muted';
-            emptyMessage.textContent = i18n.t('upload.history.empty');
-            historyList.appendChild(emptyMessage);
-        } else {
-            historyItems.forEach(historyItem => {
-                historyList.appendChild(renderHistoryItem(historyItem));
-            });
-        }
+        renderHistoryList();
         updateHistoryPagination();
 
         if (restartPolling) {
-            const activeTaskIds = historyItems
+            const activeTaskIds = loadedHistoryItems
                 .filter(historyItem => ['queued', 'processing'].includes(historyItem.status))
                 .map(historyItem => historyItem.task_id);
             if (activeTaskIds.length) {
@@ -386,7 +423,7 @@ async function loadHistory(offset = historyOffset, restartPolling = true) {
         }
     } catch (historyError) {
         if (generation === historyGeneration && historyError.message !== '请求已取消') {
-            showAlert(historyError.message || '无法加载翻译历史', 'error');
+            showAlert(historyError.message || i18n.t('upload.error.history'), 'error');
         }
     }
 }
@@ -439,21 +476,24 @@ async function startTranslation() {
     let uploadedFileId = null;
     try {
         if (!selectedPdfFile) {
-            throw new Error('请先选择 PDF 文件');
+            throw new Error(i18n.t('upload.error.invalid_file'));
         }
         selectedPageExpression();
         uploadController = new AbortController();
         setHidden('cancel-upload-btn', false);
         setHidden('progress-card', false);
-        setProgress(0, 'Uploading...');
+        setProgress(0, i18n.t('upload.progress.uploading'));
         const uploadResponse = await api.uploadFile(
             selectedPdfFile,
-            uploadProgress => setProgress(uploadProgress, 'Uploading...'),
+            uploadProgress => setProgress(
+                uploadProgress,
+                i18n.t('upload.progress.uploading'),
+            ),
             { signal: uploadController.signal },
         );
         uploadedFileId = uploadResponse.file_id;
         const pages = selectedPageExpression(uploadResponse.page_count);
-        setProgress(0, 'Starting translation...');
+        setProgress(0, i18n.t('upload.progress.starting'));
         const startResponse = await api.startTranslation(uploadedFileId, { pages });
         currentTaskId = startResponse.task_id;
         showActiveTaskProgress();
@@ -468,7 +508,7 @@ async function startTranslation() {
             }
         }
         setHidden('progress-card', true);
-        showAlert(startError.message || '翻译启动失败', 'error');
+        showAlert(startError.message || i18n.t('upload.error.start'), 'error');
     } finally {
         uploadController = null;
         setHidden('cancel-upload-btn', true);
@@ -482,12 +522,28 @@ async function startTranslation() {
 function bindPageEvents() {
     const uploadZone = element('upload-zone');
     const fileInput = element('file-input');
-    uploadZone.addEventListener('click', () => fileInput.click());
-    uploadZone.addEventListener('keydown', keyboardEvent => {
-        if (keyboardEvent.key === 'Enter' || keyboardEvent.key === ' ') {
-            keyboardEvent.preventDefault();
-            fileInput.click();
+    const selectFileButton = element('select-file-btn');
+    const openFilePicker = () => {
+        fileInput.value = '';
+        fileInput.click();
+    };
+    const uploadNavigationLink = element('upload-nav-link');
+    if (uploadNavigationLink) {
+        uploadNavigationLink.addEventListener('click', clickEvent => {
+            if (window.location.pathname.endsWith('upload.html')) {
+                clickEvent.preventDefault();
+                openFilePicker();
+            }
+        });
+    }
+    uploadZone.addEventListener('click', clickEvent => {
+        if (!clickEvent.target.closest('#select-file-btn')) {
+            openFilePicker();
         }
+    });
+    selectFileButton.addEventListener('click', clickEvent => {
+        clickEvent.stopPropagation();
+        openFilePicker();
     });
     uploadZone.addEventListener('dragover', dragEvent => {
         dragEvent.preventDefault();
@@ -523,6 +579,16 @@ function bindPageEvents() {
         }
     });
 }
+
+function refreshLocalizedUploadContent() {
+    if (selectedPdfFile) {
+        element('select-file-btn').textContent = i18n.t('upload.change.button');
+        element('upload-hint').textContent = `${formatFileSize(selectedPdfFile.size)} - ${i18n.t('upload.change')}`;
+    }
+    renderHistoryList();
+}
+
+window.addEventListener('i18n:language-changed', refreshLocalizedUploadContent);
 
 async function initializeUploadPage() {
     bindPageEvents();
