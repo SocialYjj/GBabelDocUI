@@ -341,13 +341,13 @@ jobs:
       - name: 安装 Trivy
         env:
           TRIVY_VERSION: v0.70.0
-          TRIVY_ARCH: ${{ matrix.arch == 'amd64' && '64bit' || 'ARM64' }}
         run: |
-          tarball="trivy_${TRIVY_VERSION#v}_Linux-${TRIVY_ARCH}.tar.gz"
-          curl -sSfL --retry 3 --retry-delay 2 \
-            "https://github.com/aquasecurity/trivy/releases/download/${TRIVY_VERSION}/${tarball}" \
-            -o /tmp/trivy.tar.gz
-          sudo tar -xzf /tmp/trivy.tar.gz -C /usr/local/bin trivy
+          image="ghcr.io/aquasecurity/trivy:${TRIVY_VERSION#v}"
+          docker pull "$image"
+          container_id="$(docker create "$image")"
+          trap 'docker rm -f "$container_id" >/dev/null 2>&1 || true' EXIT
+          docker cp "$container_id:/usr/local/bin/trivy" /tmp/trivy
+          sudo install -m 0755 /tmp/trivy /usr/local/bin/trivy
           trivy --version
 
       - name: 生成 Trivy SARIF 报告
