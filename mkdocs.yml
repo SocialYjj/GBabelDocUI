@@ -14,6 +14,7 @@ edit_uri: edit/main/docs/
 use_directory_urls: true
 exclude_docs: |
   _internal/
+  superpowers/plans/
 theme:
   name: material
   features:

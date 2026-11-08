@@ -193,14 +193,23 @@ jobs:
           PY
 
   image:
-    name: 构建、扫描并按标签发布镜像
+    name: 构建并扫描 ${{ matrix.platform }}
     needs: [quality, package-docs]
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            arch: amd64
+            runner: ubuntu-24.04
+          - platform: linux/arm64
+            arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
       packages: write
       security-events: write
-      id-token: write
 
     steps:
       - name: 检出完整历史
@@ -252,70 +261,187 @@ jobs:
             type=raw,value=latest,enable=${{ steps.release.outputs.enabled == 'true' }}
 
       - name: 构建本地扫描镜像
+        if: ${{ steps.release.outputs.enabled != 'true' }}
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
           file: ./Dockerfile
-          platforms: linux/amd64
+          platforms: ${{ matrix.platform }}
           load: true
-          tags: local/gbabeldocui:${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: 生成 Trivy SARIF 报告
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
-        with:
-          image-ref: local/gbabeldocui:${{ github.sha }}
-          format: sarif
-          output: trivy-results.sarif
-          severity: CRITICAL,HIGH
-          ignore-unfixed: true
-
-      - name: 上传 Trivy 扫描结果
-        if: ${{ always() && hashFiles('trivy-results.sarif') != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
-        uses: github/codeql-action/upload-sarif@f205ea1c3313d32999d8d6a48b4f6530d4437b38 # v4.37.4
-        with:
-          sarif_file: trivy-results.sarif
-
-      - name: 执行高危漏洞门禁
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
-        with:
-          image-ref: local/gbabeldocui:${{ github.sha }}
-          format: table
-          severity: CRITICAL,HIGH
-          ignore-unfixed: true
-          exit-code: "1"
+          tags: local/gbabeldocui:${{ github.sha }}-${{ matrix.arch }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.arch }}
 
       - name: 登录 GitHub Container Registry
-        if: steps.release.outputs.enabled == 'true'
+        if: ${{ steps.release.outputs.enabled == 'true' }}
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: 发布带 SBOM 和来源证明的镜像
-        if: steps.release.outputs.enabled == 'true'
+      - name: 按 digest 发布单平台镜像
         id: publish
+        if: ${{ steps.release.outputs.enabled == 'true' }}
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
           file: ./Dockerfile
-          platforms: linux/amd64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
+          platforms: ${{ matrix.platform }}
+          outputs: type=image,name=${{ steps.image.outputs.name }},push-by-digest=true,name-canonical=true,push=true
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
+          cache-from: type=gha,scope=${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.arch }}
           provenance: mode=max
           sbom: true
 
-      - name: 安装 Cosign
-        if: steps.release.outputs.enabled == 'true'
-        uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v4.0.0
-
-      - name: 使用 GitHub OIDC 签名镜像
-        if: steps.release.outputs.enabled == 'true'
+      - name: 解析平台镜像 digest
+        id: platform
+        if: ${{ steps.release.outputs.enabled == 'true' }}
         env:
           IMAGE_NAME: ${{ steps.image.outputs.name }}
-          IMAGE_DIGEST: ${{ steps.publish.outputs.digest }}
-        run: cosign sign --yes "${IMAGE_NAME}@${IMAGE_DIGEST}"
+          INDEX_DIGEST: ${{ steps.publish.outputs.digest }}
+          TARGET_PLATFORM: ${{ matrix.platform }}
+        shell: bash
+        run: |
+          digest=$(docker buildx imagetools inspect --raw "${IMAGE_NAME}@${INDEX_DIGEST}" \
+            | jq -r --arg p "$TARGET_PLATFORM" \
+              '[.manifests[]? | select(.platform != null and .platform.os != null) | select((.platform.os + "/" + .platform.architecture) == $p) | .digest] | first // empty')
+          if [ -z "$digest" ]; then
+            echo "::error::No manifest for $TARGET_PLATFORM in $INDEX_DIGEST"
+            exit 1
+          fi
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+
+      - name: 安装 Trivy
+        env:
+          TRIVY_VERSION: v0.70.0
+          TRIVY_ARCH: ${{ matrix.arch == 'amd64' && '64bit' || 'ARM64' }}
+        run: |
+          tarball="trivy_${TRIVY_VERSION#v}_Linux-${TRIVY_ARCH}.tar.gz"
+          curl -sSfL --retry 3 --retry-delay 2 \
+            "https://github.com/aquasecurity/trivy/releases/download/${TRIVY_VERSION}/${tarball}" \
+            -o /tmp/trivy.tar.gz
+          sudo tar -xzf /tmp/trivy.tar.gz -C /usr/local/bin trivy
+          trivy --version
+
+      - name: 生成 Trivy SARIF 报告
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          skip-setup-trivy: true
+          image-ref: ${{ steps.release.outputs.enabled == 'true' && format('{0}@{1}', steps.image.outputs.name, steps.platform.outputs.digest) || format('local/gbabeldocui:{0}-{1}', github.sha, matrix.arch) }}
+          format: sarif
+          output: trivy-results-${{ matrix.arch }}.sarif
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+
+      - name: 上传 Trivy 扫描结果
+        if: ${{ always() && hashFiles(format('trivy-results-{0}.sarif', matrix.arch)) != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
+        uses: github/codeql-action/upload-sarif@f205ea1c3313d32999d8d6a48b4f6530d4437b38 # v4.37.4
+        with:
+          sarif_file: trivy-results-${{ matrix.arch }}.sarif
+          category: trivy-${{ matrix.arch }}
+
+      - name: 执行高危漏洞门禁
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          skip-setup-trivy: true
+          image-ref: ${{ steps.release.outputs.enabled == 'true' && format('{0}@{1}', steps.image.outputs.name, steps.platform.outputs.digest) || format('local/gbabeldocui:{0}-{1}', github.sha, matrix.arch) }}
+          format: table
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: "1"
+
+      - name: 导出 digest
+        if: ${{ steps.release.outputs.enabled == 'true' }}
+        env:
+          DIGEST: ${{ steps.publish.outputs.digest }}
+        run: |
+          mkdir -p /tmp/digests
+          touch "/tmp/digests/${DIGEST#sha256:}"
+
+      - name: 上传 digest
+        if: ${{ steps.release.outputs.enabled == 'true' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: digests-${{ matrix.arch }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  merge:
+    name: 合并并签名多架构 manifest
+    needs: image
+    if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+
+    steps:
+      - name: 下载各平台 digest
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          path: /tmp/digests
+          pattern: digests-*
+          merge-multiple: true
+
+      - name: 设置 Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+
+      - name: 设置镜像名称
+        id: image
+        shell: bash
+        run: echo "name=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+
+      - name: 生成发布标签
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ steps.image.outputs.name }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=raw,value=latest
+
+      - name: 登录 GitHub Container Registry
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 创建并推送多架构 manifest
+        working-directory: /tmp/digests
+        env:
+          IMAGE_NAME: ${{ steps.image.outputs.name }}
+          DOCKER_METADATA_OUTPUT_JSON: ${{ steps.meta.outputs.json }}
+        run: |
+          mapfile -t tags < <(jq -r '.tags[]' <<< "$DOCKER_METADATA_OUTPUT_JSON")
+          tag_args=()
+          for tag in "${tags[@]}"; do
+            tag_args+=(--tag "$tag")
+          done
+
+          digest_refs=()
+          for digest_file in *; do
+            digest_refs+=("${IMAGE_NAME}@sha256:${digest_file}")
+          done
+
+          docker buildx imagetools create "${tag_args[@]}" "${digest_refs[@]}"
+
+      - name: 检查发布 manifest
+        env:
+          IMAGE_NAME: ${{ steps.image.outputs.name }}
+          IMAGE_VERSION: ${{ steps.meta.outputs.version }}
+        run: docker buildx imagetools inspect "${IMAGE_NAME}:${IMAGE_VERSION}"
+
+      - name: 安装 Cosign
+        uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v4.0.0
+
+      - name: 使用 GitHub OIDC 签名多架构镜像
+        env:
+          IMAGE_NAME: ${{ steps.image.outputs.name }}
+          IMAGE_VERSION: ${{ steps.meta.outputs.version }}
+        run: cosign sign --yes "${IMAGE_NAME}:${IMAGE_VERSION}"
