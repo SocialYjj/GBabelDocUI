@@ -7,6 +7,12 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      publish_latest:
+        description: 仅构建、扫描并发布当前 main 的双架构 latest 镜像
+        required: false
+        type: boolean
+        default: false
 
 concurrency:
   group: gbabeldocui-${{ github.workflow }}-${{ github.ref }}
@@ -17,6 +23,7 @@ permissions:
 
 jobs:
   quality:
+    if: ${{ !inputs.publish_latest }}
     name: Python ${{ matrix.python-version }} 测试
     runs-on: ubuntu-latest
     strategy:
@@ -59,6 +66,7 @@ jobs:
         run: find gbabeldocui/static/js -type f -name '*.js' -print0 | sort -z | xargs -0 -n1 node --check
 
   package-docs:
+    if: ${{ !inputs.publish_latest }}
     name: 构建发行包和文档
     needs: quality
     runs-on: ubuntu-latest
@@ -195,6 +203,7 @@ jobs:
   image:
     name: 构建并扫描 ${{ matrix.platform }}
     needs: [quality, package-docs]
+    if: ${{ !cancelled() && (inputs.publish_latest || (needs.quality.result == 'success' && needs.package-docs.result == 'success')) }}
     strategy:
       fail-fast: false
       matrix:
@@ -224,8 +233,23 @@ jobs:
 
       - name: 校验发布标签
         id: release
+        env:
+          PUBLISH_LATEST: ${{ inputs.publish_latest }}
         shell: bash
         run: |
+          if [[ "$PUBLISH_LATEST" == "true" ]]; then
+            if [[ "$GITHUB_REF" != "refs/heads/main" ]]; then
+              echo "Publish-only runs must target main" >&2
+              exit 1
+            fi
+            git fetch origin main
+            if [[ "$GITHUB_SHA" != "$(git rev-parse origin/main)" ]]; then
+              echo "Publish-only runs must target the current origin/main commit" >&2
+              exit 1
+            fi
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           if [[ "$GITHUB_REF" != refs/tags/v* ]]; then
             echo "enabled=false" >> "$GITHUB_OUTPUT"
             exit 0
@@ -373,7 +397,7 @@ jobs:
   merge:
     name: 合并并签名多架构 manifest
     needs: image
-    if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+    if: ${{ startsWith(github.ref, 'refs/tags/v') || inputs.publish_latest }}
     runs-on: ubuntu-24.04
     permissions:
       contents: read
