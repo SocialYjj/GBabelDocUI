@@ -14,8 +14,12 @@
 
 - 不读取、修改或删除 `data` 中的真实文件；Docker 构建上下文继续由 `.dockerignore` 排除 `data` 与 `.env`。
 - 保留 `pyproject.toml` 版本校验、tag 必须属于 `main` 的规则、SBOM/provenance、Trivy CRITICAL/HIGH 门禁和 Cosign 签名。
-- 本次只增加未来版本的多架构发布能力；不更改 `1.2.3`、不重写既有 tag，也不创建新版本 tag。
+- 为按用户要求立即更新 `latest`，创建新的补丁版本 `v1.2.4`；保留 `v1.2.3`，不重写既有 tag。
 - `latest` 仅在匹配版本 tag 发布后更新；main/PR 的 arm64 构建用于验证，不向 GHCR 发布。
+
+## 执行裁定
+
+- **Ruling:** 用户明确要求 `latest` 立即包含 ARM64，故本次覆盖原计划“不创建新 tag”的限制，发布新补丁版本 `v1.2.4`；不重写 `v1.2.3`。若判断错误，影响是 GHCR 多发布一个补丁版本。
 
 ---
 
@@ -44,4 +48,11 @@
 
 - [ ] **Step 4：推送 main 并验证两平台构建**
 
-执行完整 GH Actions 工作流，确认 quality、package/docs 与 amd64/arm64 构建及扫描均成功。由于不创建新版本 tag，本阶段不改变当前 GHCR `latest`；发布仍需后续匹配 `pyproject.toml` 的版本 tag。
+推送 main 后等待完整 GH Actions 工作流通过，确认 quality、package/docs 与 amd64/arm64 构建及扫描均成功；随后为同一提交创建并推送匹配项目版本的 `v1.2.4` tag，由发布工作流合并双架构 manifest、签名并更新 GHCR `latest`。不部署 VPS。
+
+## 实施状态（2026-11-08）
+
+- 当前阶段：已将依赖兼容约束和版本统一至 `1.2.4`，本地验证及 GitHub Actions 工作流待完成。
+- 已完成内容：`bitstring>=4.3.0,<5.0` 已加入运行依赖；`uv.lock` 已更新，`pyproject.toml`、`bumpver` 和包内版本均为 `1.2.4`。
+- 根因：标准 pip 安装没有读取 `uv.lock`，将 BabelDOC 0.6.4 的未限定 `bitstring` 依赖解析到 5.x，导致 wheel 导入失败。
+- 后续步骤：验证 main 工作流通过后，推送 `v1.2.4`，等待发布工作流成功，并检查 `latest` manifest 同时含 amd64、arm64。

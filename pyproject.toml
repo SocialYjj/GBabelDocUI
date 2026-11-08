@@ -1,6 +1,6 @@
 [project]
 name = "gbabeldocui"
-version = "1.2.3"
+version = "1.2.4"
 description = "Multi-user Web UI for the BabelDOC PDF translation pipeline"
 authors = [
     { name = "SocialYjj" },
@@ -17,6 +17,7 @@ classifiers = [
 ]
 dependencies = [
     "babeldoc==0.6.4",
+    "bitstring>=4.3.0,<5.0",
     "azure-ai-translation-text>=1.0.1,<2.0",
     "deepl>=1.30.0,<2.0",
     "joblib>=1.5.3,<2.0",
@@ -80,7 +81,7 @@ max-line-length = 88
 
 
 [bumpver]
-current_version = "1.2"
+current_version = "1.2.4"
 version_pattern = "MAJOR.MINOR[.PATCH][.PYTAGNUM]"
 
 [bumpver.file_patterns]
