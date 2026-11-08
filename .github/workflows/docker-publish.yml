@@ -397,7 +397,7 @@ jobs:
   merge:
     name: 合并并签名多架构 manifest
     needs: image
-    if: ${{ startsWith(github.ref, 'refs/tags/v') || inputs.publish_latest }}
+    if: ${{ !cancelled() && needs.image.result == 'success' && (startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && github.event.inputs.publish_latest == 'true')) }}
     runs-on: ubuntu-24.04
     permissions:
       contents: read
