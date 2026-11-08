@@ -21,7 +21,14 @@ RUN apt-get update \
         libxext6 \
         libxrender1 \
         tini \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && rm -rf \
+        /usr/local/lib/python3.13/site-packages/pip* \
+        /usr/local/lib/python3.13/site-packages/setuptools* \
+        /usr/local/lib/python3.13/site-packages/pkg_resources \
+        /usr/local/lib/python3.13/site-packages/_distutils_hack \
+        /usr/local/lib/python3.13/ensurepip \
+        /usr/local/bin/pip*
 
 RUN groupadd --gid 10001 gbabeldocui \
     && useradd --uid 10001 --gid 10001 --create-home --shell /usr/sbin/nologin gbabeldocui \

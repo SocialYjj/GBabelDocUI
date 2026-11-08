@@ -54,6 +54,6 @@
 
 - 当前阶段：`bitstring` wheel 安装兼容问题已修复；首次 main 工作流的测试、发行包和标准 pip 安装通过，但 amd64/arm64 Trivy 门禁发现需更新的高危依赖及基础镜像 OpenSSL。
 - 已完成内容：项目版本为 `1.2.4`；`bitstring>=4.3.0,<5.0` 已加入运行依赖并通过标准 pip 安装验证。
-- 当前修复：更新 Pillow、filelock、PyJWT 等直接/间接依赖及 Python slim 基础镜像摘要，继续保留 CRITICAL/HIGH 门禁。
+- 当前修复：应用依赖已升级；Trivy 确认旧版 urllib3/msgpack 来自 Python 基础镜像全局 pip 的 vendored 包。运行镜像不需要 pip/ensurepip，已从 runtime 层移除，并将 BuildKit 缓存按 `uv.lock` 哈希隔离；保留 CRITICAL/HIGH 门禁。
 - 兼容性决策：已修复版本的 Pillow 13 和 filelock 4 要求 Python 3.11 及以上；保留项目 Python 3.10 支持，用环境标记让 3.10 使用其兼容版本。容器运行 Python 3.13，将使用已修复版本。
 - 后续步骤：完成本地检查后再次推送 main 并等待完整工作流通过，再推送 `v1.2.4`，验证 `latest` manifest 同时含 amd64、arm64。

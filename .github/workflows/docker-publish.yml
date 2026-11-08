@@ -270,8 +270,8 @@ jobs:
           load: true
           tags: local/gbabeldocui:${{ github.sha }}-${{ matrix.arch }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,scope=${{ matrix.arch }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.arch }}
+          cache-from: type=gha,scope=gbabeldocui-${{ matrix.arch }}-${{ hashFiles('uv.lock') }}
+          cache-to: type=gha,mode=max,scope=gbabeldocui-${{ matrix.arch }}-${{ hashFiles('uv.lock') }}
 
       - name: 登录 GitHub Container Registry
         if: ${{ steps.release.outputs.enabled == 'true' }}
@@ -291,8 +291,8 @@ jobs:
           platforms: ${{ matrix.platform }}
           outputs: type=image,name=${{ steps.image.outputs.name }},push-by-digest=true,name-canonical=true,push=true
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,scope=${{ matrix.arch }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.arch }}
+          cache-from: type=gha,scope=gbabeldocui-${{ matrix.arch }}-${{ hashFiles('uv.lock') }}
+          cache-to: type=gha,mode=max,scope=gbabeldocui-${{ matrix.arch }}-${{ hashFiles('uv.lock') }}
           provenance: mode=max
           sbom: true
 
