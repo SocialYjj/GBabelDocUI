@@ -52,7 +52,8 @@
 
 ## 实施状态（2026-11-08）
 
-- 当前阶段：已将依赖兼容约束和版本统一至 `1.2.4`，本地验证及 GitHub Actions 工作流待完成。
-- 已完成内容：`bitstring>=4.3.0,<5.0` 已加入运行依赖；`uv.lock` 已更新，`pyproject.toml`、`bumpver` 和包内版本均为 `1.2.4`。
-- 根因：标准 pip 安装没有读取 `uv.lock`，将 BabelDOC 0.6.4 的未限定 `bitstring` 依赖解析到 5.x，导致 wheel 导入失败。
-- 后续步骤：验证 main 工作流通过后，推送 `v1.2.4`，等待发布工作流成功，并检查 `latest` manifest 同时含 amd64、arm64。
+- 当前阶段：`bitstring` wheel 安装兼容问题已修复；首次 main 工作流的测试、发行包和标准 pip 安装通过，但 amd64/arm64 Trivy 门禁发现需更新的高危依赖及基础镜像 OpenSSL。
+- 已完成内容：项目版本为 `1.2.4`；`bitstring>=4.3.0,<5.0` 已加入运行依赖并通过标准 pip 安装验证。
+- 当前修复：更新 Pillow、filelock、PyJWT 等直接/间接依赖及 Python slim 基础镜像摘要，继续保留 CRITICAL/HIGH 门禁。
+- 兼容性决策：已修复版本的 Pillow 13 和 filelock 4 要求 Python 3.11 及以上；保留项目 Python 3.10 支持，用环境标记让 3.10 使用其兼容版本。容器运行 Python 3.13，将使用已修复版本。
+- 后续步骤：完成本地检查后再次推送 main 并等待完整工作流通过，再推送 `v1.2.4`，验证 `latest` manifest 同时含 amd64、arm64。

@@ -11,7 +11,7 @@ COPY gbabeldocui ./gbabeldocui
 RUN uv sync --frozen --no-dev --no-editable
 
 
-FROM python:3.13-slim-bookworm@sha256:67a1e1f215ccda113cfc024e8639049257e88f273898f595b61476d128d387e8 AS runtime
+FROM python:3.13-slim-bookworm@sha256:a5a7017efc5969e00ae2b91c8eb0631049a569652aa4ffc4501769049ae45c72 AS runtime
 
 RUN apt-get update \
     && apt-get install --no-install-recommends -y \
